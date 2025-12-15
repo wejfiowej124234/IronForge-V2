@@ -55,8 +55,6 @@ pub struct WalletData {
 /// 会话密钥（内存中，自动清零）
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct SessionKey {
-    #[zeroize(skip)]
-    wallet_id: String,
     master_key: Vec<u8>, // 从助记词派生的主密钥
     unlocked_at: u64,
     expires_at: u64,
@@ -70,13 +68,6 @@ pub struct WalletManager {
 impl WalletManager {
     pub fn new() -> Self {
         Self { session_key: None }
-    }
-
-    /// 获取当前解锁会话对应的钱包ID（如果已解锁）
-    pub fn current_wallet_id(&self) -> Option<&str> {
-        self.session_key
-            .as_ref()
-            .map(|session| session.wallet_id.as_str())
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -120,7 +111,6 @@ impl WalletManager {
         // 6. 派生主密钥并缓存（解锁状态）
         let master_key = self.derive_master_key(&mnemonic_phrase)?;
         self.session_key = Some(SessionKey {
-            wallet_id: wallet_id.clone(),
             master_key,
             unlocked_at: self.current_timestamp(),
             expires_at: self.current_timestamp() + SESSION_TIMEOUT_MS,
@@ -254,7 +244,6 @@ impl WalletManager {
 
         // 4. 创建会话密钥
         self.session_key = Some(SessionKey {
-            wallet_id,
             master_key,
             unlocked_at: self.current_timestamp(),
             expires_at: self.current_timestamp() + SESSION_TIMEOUT_MS,
