@@ -82,14 +82,14 @@ pub struct BridgeHistoryResponse {
 #[derive(Clone)]
 pub struct BridgeService {
     api_client: Arc<ApiClient>,
-    transaction_service: Arc<TransactionService>,
+    transaction_service: TransactionService,
 }
 
 impl BridgeService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self {
             api_client: Arc::new(app_state.get_api_client()),
-            transaction_service: Arc::new(TransactionService::new((*app_state).clone())),
+            transaction_service: TransactionService::new(app_state),
         }
     }
 

@@ -1,6 +1,12 @@
 //! Import Wallet Page - 导入钱包页面
 //! 支持助记词、私钥、Keystore导入，支持4种链恢复
 
+#![allow(
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::clone_on_copy
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};
@@ -48,7 +54,7 @@ pub fn ImportWallet() -> Element {
 
     // 验证助记词
     let validate_mnemonic = |phrase: &str| -> Result<(), String> {
-        let words: Vec<&str> = phrase.trim().split_whitespace().collect();
+        let words: Vec<&str> = phrase.split_whitespace().collect();
         if words.len() != 12 && words.len() != 24 {
             return Err("助记词必须是12个或24个单词".to_string());
         }
@@ -61,16 +67,12 @@ pub fn ImportWallet() -> Element {
     let validate_private_key = |key: &str| -> Result<(), String> {
         let trimmed = key.trim();
         // Ethereum私钥：64字符hex（不带0x）
-        if trimmed.len() == 64 {
-            if hex::decode(trimmed).is_ok() {
-                return Ok(());
-            }
+        if trimmed.len() == 64 && hex::decode(trimmed).is_ok() {
+            return Ok(());
         }
         // 带0x前缀
-        if trimmed.starts_with("0x") && trimmed.len() == 66 {
-            if hex::decode(&trimmed[2..]).is_ok() {
-                return Ok(());
-            }
+        if trimmed.starts_with("0x") && trimmed.len() == 66 && hex::decode(&trimmed[2..]).is_ok() {
+            return Ok(());
         }
         Err("无效的私钥格式".to_string())
     };

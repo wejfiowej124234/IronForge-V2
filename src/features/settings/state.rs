@@ -20,6 +20,7 @@ pub enum Language {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Currency {
     USD,
     CNY,

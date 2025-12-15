@@ -206,7 +206,9 @@ impl TokenService {
             }
             _ => {
                 // 其他链：只返回原生代币
-                if let Ok(native_symbol) = crate::services::chain_config::ChainConfigManager::new().get_native_token(chain) {
+                if let Ok(native_symbol) =
+                    crate::services::chain_config::ChainConfigManager::new().get_native_token(chain)
+                {
                     tokens.push(TokenInfo {
                         address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE".to_string(),
                         symbol: native_symbol.clone(),
@@ -220,7 +222,10 @@ impl TokenService {
             }
         }
 
-        log::warn!("使用降级代币列表（{}个代币），建议检查后端API连接", tokens.len());
+        log::warn!(
+            "使用降级代币列表（{}个代币），建议检查后端API连接",
+            tokens.len()
+        );
         tokens
     }
 
@@ -418,7 +423,11 @@ impl TokenService {
         };
 
         // deserialize 方法已自动提取 data 字段
-        match self.api_client.post("/api/v1/tokens/balances", &request).await {
+        match self
+            .api_client
+            .post("/api/v1/tokens/balances", &request)
+            .await
+        {
             Ok(Some(response)) => Ok(response),
             Ok(None) => {
                 // 降级：逐个查询

@@ -21,8 +21,8 @@ pub fn WalletDeleteModal(
 ) -> Element {
     let navigator = use_navigator();
 
-    let app_state = app_state.read().clone();
-    let wallet_controller = wallet_controller.read().clone();
+    let app_state = *app_state.read();
+    let wallet_controller = *wallet_controller.read();
 
     rsx! {
         Modal {
@@ -71,10 +71,10 @@ pub fn WalletDeleteModal(
                             onclick: move |_| {
                                 let wallet_id_clone = wallet_id.clone();
                                 let wallet_name_clone = wallet_name.clone();
-                                let app_state_clone = app_state.clone();
-                                let wallet_controller_clone = wallet_controller.clone();
-                                let navigator_clone = navigator.clone();
-                                let on_close = on_close.clone();
+                                let app_state_clone = app_state;
+                                let wallet_controller_clone = wallet_controller;
+                                let navigator_clone = navigator;
+                                let on_close = on_close;
                                 spawn(async move {
                                     match wallet_controller_clone.delete_wallet(&wallet_id_clone).await {
                                         Ok(_) => {

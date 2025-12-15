@@ -125,6 +125,10 @@ rlp = "0.5"
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
+# This repository is intentionally standalone. Adding an empty workspace table
+# prevents Cargo from treating the parent monorepo workspace as our workspace.
+[workspace]
+
 # Error Reporting (Optional - requires Sentry account)
 # sentry = { version = "0.32", features = ["wasm"] }
 

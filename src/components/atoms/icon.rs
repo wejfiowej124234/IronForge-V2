@@ -1,6 +1,8 @@
 //! Icon Component - 图标组件
 //! 生产级图标组件，支持SVG图标
 
+#![allow(clippy::upper_case_acronyms)]
+
 use crate::shared::design_tokens::Colors;
 use dioxus::prelude::*;
 
@@ -19,7 +21,7 @@ pub enum IconSize {
 }
 
 impl IconSize {
-    fn to_pixels(&self) -> &'static str {
+    fn to_pixels(self) -> &'static str {
         match self {
             IconSize::XS => "12px",
             IconSize::SM => "16px",

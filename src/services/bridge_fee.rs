@@ -224,8 +224,9 @@ impl BridgeFeeService {
             .filter(|&v| v > 0.0 && v.is_finite() && v <= 0.1) // 验证范围：0-10%
             .or_else(|| {
                 // 降级策略：从环境变量读取链组合特定费率
-                let pair_key = format!("BRIDGE_RATE_{}_{}", 
-                    from.as_str().to_uppercase(), 
+                let pair_key = format!(
+                    "BRIDGE_RATE_{}_{}",
+                    from.as_str().to_uppercase(),
                     to.as_str().to_uppercase()
                 );
                 std::env::var(&pair_key)
@@ -234,8 +235,9 @@ impl BridgeFeeService {
                     .filter(|&v| v > 0.0 && v.is_finite() && v <= 0.1)
                     .or_else(|| {
                         // 尝试反向链组合
-                        let reverse_key = format!("BRIDGE_RATE_{}_{}", 
-                            to.as_str().to_uppercase(), 
+                        let reverse_key = format!(
+                            "BRIDGE_RATE_{}_{}",
+                            to.as_str().to_uppercase(),
                             from.as_str().to_uppercase()
                         );
                         std::env::var(&reverse_key)
@@ -275,8 +277,9 @@ impl BridgeFeeService {
             });
 
         // 企业级实现：从环境变量读取链组合调整因子
-        let chain_factor = std::env::var(format!("BRIDGE_FACTOR_{}_{}", 
-            from.as_str().to_uppercase(), 
+        let chain_factor = std::env::var(format!(
+            "BRIDGE_FACTOR_{}_{}",
+            from.as_str().to_uppercase(),
             to.as_str().to_uppercase()
         ))
             .ok()
@@ -284,8 +287,9 @@ impl BridgeFeeService {
             .filter(|&v| v > 0.0 && v.is_finite() && v <= 5.0) // 验证范围：0-5倍
             .or_else(|| {
                 // 尝试反向链组合
-                let reverse_key = format!("BRIDGE_FACTOR_{}_{}", 
-                    to.as_str().to_uppercase(), 
+                let reverse_key = format!(
+                    "BRIDGE_FACTOR_{}_{}",
+                    to.as_str().to_uppercase(),
                     from.as_str().to_uppercase()
                 );
                 std::env::var(&reverse_key)
@@ -323,8 +327,9 @@ impl BridgeFeeService {
         let total_fee = bridge_fee + source_gas_fee + target_gas_fee;
 
         // 企业级实现：预估时间（从环境变量读取）
-        let estimated_time = std::env::var(format!("BRIDGE_TIME_{}_{}", 
-            from.as_str().to_uppercase(), 
+        let estimated_time = std::env::var(format!(
+            "BRIDGE_TIME_{}_{}",
+            from.as_str().to_uppercase(),
             to.as_str().to_uppercase()
         ))
             .ok()

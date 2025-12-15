@@ -89,6 +89,7 @@ pub enum ApiError {
 
 #[derive(Error, Debug, Clone, PartialEq)]
 #[allow(dead_code)] // 错误类型定义，用于未来功能
+#[allow(clippy::enum_variant_names)]
 pub enum StorageError {
     #[error("Save failed: {0}")]
     #[allow(dead_code)]

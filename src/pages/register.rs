@@ -1,6 +1,12 @@
 //! Register Page - 注册页面
 //! 用户注册新账户
 
+#![allow(
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::clone_on_copy
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};

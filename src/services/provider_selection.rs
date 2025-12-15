@@ -126,9 +126,9 @@ pub struct ProviderSelectionService {
 }
 
 impl ProviderSelectionService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         let mut default_config = HashMap::new();
-        let providers = vec![
+        let providers = [
             ProviderType::Ramp,
             ProviderType::MoonPay,
             ProviderType::Transak,
@@ -257,7 +257,10 @@ impl ProviderSelectionService {
         let start_time = js_sys::Date::new_0().get_time();
 
         // 调用后端健康检查API
-        let url = format!("/api/v1/providers/{}/health", provider.name().to_lowercase());
+        let url = format!(
+            "/api/v1/providers/{}/health",
+            provider.name().to_lowercase()
+        );
         let response: ProviderHealthResponse = self
             .api_client
             .get(&url)
@@ -406,7 +409,7 @@ impl ProviderSelectionService {
         let unknown_response_time_score = std::env::var("PROVIDER_SCORING_UNKNOWN_RESPONSE_TIME_SCORE")
             .ok()
             .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v >= 0.0 && v <= 100.0 && v.is_finite())
+            .filter(|&v| (0.0..=100.0).contains(&v) && v.is_finite())
             .unwrap_or_else(|| {
                 tracing::error!(
                     "严重警告：未找到环境变量配置的服务商评分未知响应时间分数，使用硬编码默认值 50.0分。生产环境必须配置环境变量 PROVIDER_SCORING_UNKNOWN_RESPONSE_TIME_SCORE"
@@ -415,10 +418,7 @@ impl ProviderSelectionService {
             });
 
         // 费用得分（越低越好，转换为0-100分）
-        let fee_score = (1.0 - quote.fee_percentage / max_fee_percentage)
-            .max(0.0)
-            .min(1.0)
-            * 100.0;
+        let fee_score = (1.0 - quote.fee_percentage / max_fee_percentage).clamp(0.0, 1.0) * 100.0;
 
         // 响应时间得分（越快越好，转换为0-100分）
         let response_time_score = if let Some(rt) = health.response_time_ms {
@@ -426,8 +426,7 @@ impl ProviderSelectionService {
             let time_range = max_response_time_seconds - ideal_response_time_seconds;
             if time_range > 0.0 {
                 (1.0 - (seconds - ideal_response_time_seconds).max(0.0) / time_range)
-                    .max(0.0)
-                    .min(1.0)
+                    .clamp(0.0, 1.0)
                     * 100.0
             } else {
                 100.0 // 如果时间范围无效，给满分
@@ -465,7 +464,7 @@ impl ProviderSelectionService {
         let fee_weight = std::env::var("PROVIDER_SCORING_FEE_WEIGHT")
             .ok()
             .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v >= 0.0 && v <= 1.0 && v.is_finite())
+            .filter(|&v| (0.0..=1.0).contains(&v) && v.is_finite())
             .unwrap_or_else(|| {
                 tracing::error!(
                     "严重警告：未找到环境变量配置的服务商评分费用权重，使用硬编码默认值 0.7 (70%)。生产环境必须配置环境变量 PROVIDER_SCORING_FEE_WEIGHT"
@@ -476,7 +475,7 @@ impl ProviderSelectionService {
         let response_time_weight = std::env::var("PROVIDER_SCORING_RESPONSE_TIME_WEIGHT")
             .ok()
             .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v >= 0.0 && v <= 1.0 && v.is_finite())
+            .filter(|&v| (0.0..=1.0).contains(&v) && v.is_finite())
             .unwrap_or_else(|| {
                 tracing::error!(
                     "严重警告：未找到环境变量配置的服务商评分响应时间权重，使用硬编码默认值 0.2 (20%)。生产环境必须配置环境变量 PROVIDER_SCORING_RESPONSE_TIME_WEIGHT"
@@ -487,7 +486,7 @@ impl ProviderSelectionService {
         let success_rate_weight = std::env::var("PROVIDER_SCORING_SUCCESS_RATE_WEIGHT")
             .ok()
             .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v >= 0.0 && v <= 1.0 && v.is_finite())
+            .filter(|&v| (0.0..=1.0).contains(&v) && v.is_finite())
             .unwrap_or_else(|| {
                 tracing::error!(
                     "严重警告：未找到环境变量配置的服务商评分成功率权重，使用硬编码默认值 0.1 (10%)。生产环境必须配置环境变量 PROVIDER_SCORING_SUCCESS_RATE_WEIGHT"

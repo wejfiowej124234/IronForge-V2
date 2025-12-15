@@ -16,7 +16,7 @@ pub fn AuthGuard(children: Element) -> Element {
     // 检查登录状态并跳转
     if !is_authenticated {
         use_effect(move || {
-            let nav = navigator.clone();
+            let nav = navigator;
             spawn(async move {
                 nav.push(Route::Login {});
             });

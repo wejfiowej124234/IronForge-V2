@@ -5,6 +5,7 @@ use crate::shared::error::AppError;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)] // 功能开关系统，用于未来功能
@@ -96,8 +97,23 @@ impl Default for FeatureFlagsConfig {
 
         Self {
             flags,
-            last_updated: (js_sys::Date::new_0().get_time() / 1000.0) as u64,
+            last_updated: now_secs(),
         }
+    }
+}
+
+fn now_secs() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        (js_sys::Date::new_0().get_time() / 1000.0) as u64
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
     }
 }
 
@@ -206,7 +222,7 @@ impl FeatureFlagsManager {
         let config: Option<FeatureFlagsConfig> = api_client
             .get("/api/v1/features")
             .await
-            .map_err(|e| AppError::Api(e))?;
+            .map_err(AppError::Api)?;
 
         if let Some(config) = config {
             self.update_config(config);
@@ -305,6 +321,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_feature_enabled_check() {
         let manager = FeatureFlagsManager::new();
 
@@ -319,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_user_whitelist() {
         let manager = FeatureFlagsManager::new();
 
@@ -328,6 +346,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_rollout_percentage() {
         let mut config = FeatureFlagsConfig::default();
 
@@ -354,6 +373,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(target_arch = "wasm32"), ignore)]
     fn test_simple_hash() {
         let manager = FeatureFlagsManager::new();
 

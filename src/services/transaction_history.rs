@@ -4,12 +4,11 @@
 use crate::shared::api::ApiClient;
 use crate::shared::state::AppState;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 /// URL编码工具函数（使用JavaScript的encodeURIComponent）
 fn encode_uri_component(s: &str) -> String {
     // 使用JavaScript的encodeURIComponent进行URL编码
-    let encoded = js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
+    js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
         .ok()
         .and_then(|f| {
             js_sys::Function::from(f)
@@ -17,8 +16,7 @@ fn encode_uri_component(s: &str) -> String {
                 .ok()
         })
         .and_then(|v| v.as_string())
-        .unwrap_or_else(|| s.to_string());
-    encoded
+        .unwrap_or_else(|| s.to_string())
 }
 
 /// 交易类型
@@ -115,11 +113,11 @@ pub struct TransactionHistoryResponse {
 
 /// 交易历史服务
 pub struct TransactionHistoryService {
-    app_state: Arc<AppState>,
+    app_state: AppState,
 }
 
 impl TransactionHistoryService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self { app_state }
     }
 
@@ -178,7 +176,8 @@ impl TransactionHistoryService {
         }
 
         // 发送API请求
-        match self.get_api_client()
+        match self
+            .get_api_client()
             .get::<TransactionHistoryResponse>(&url)
             .await
         {
@@ -186,13 +185,13 @@ impl TransactionHistoryService {
             Err(e) => {
                 // ✅ 统一处理401错误：仅在用户已登录且token过期时自动登出
                 if crate::shared::auth_handler::is_unauthorized_error(&e) {
-                    crate::shared::auth_handler::handle_unauthorized_and_redirect(*self.app_state);
+                    crate::shared::auth_handler::handle_unauthorized_and_redirect(self.app_state);
                     // 注意：如果用户本来就没登录，上面的函数不会做任何事
                 }
-                
+
                 let error_msg = e.to_string().to_lowercase();
                 if error_msg.contains("unauthorized") || error_msg.contains("401") {
-                    return Err("请先登录账户".to_string());
+                    Err("请先登录账户".to_string())
                 } else if error_msg.contains("timeout") || error_msg.contains("network") {
                     Err("网络连接超时，请稍后重试".to_string())
                 } else {
@@ -217,9 +216,13 @@ impl TransactionHistoryService {
             return Err("交易ID不能为空".to_string());
         }
 
-        let url = format!("/api/v1/swap/history/{}", encode_uri_component(transaction_id));
+        let url = format!(
+            "/api/v1/swap/history/{}",
+            encode_uri_component(transaction_id)
+        );
 
-        match self.get_api_client()
+        match self
+            .get_api_client()
             .get::<TransactionHistoryItem>(&url)
             .await
         {
@@ -227,13 +230,13 @@ impl TransactionHistoryService {
             Err(e) => {
                 // ✅ 统一处理401错误：仅在用户已登录且token过期时自动登出
                 if crate::shared::auth_handler::is_unauthorized_error(&e) {
-                    crate::shared::auth_handler::handle_unauthorized_and_redirect(*self.app_state);
+                    crate::shared::auth_handler::handle_unauthorized_and_redirect(self.app_state);
                     // 注意：如果用户本来就没登录，上面的函数不会做任何事
                 }
-                
+
                 let error_msg = e.to_string().to_lowercase();
                 if error_msg.contains("unauthorized") || error_msg.contains("401") {
-                    return Err("请先登录账户".to_string());
+                    Err("请先登录账户".to_string())
                 } else if error_msg.contains("not found") || error_msg.contains("404") {
                     Err("交易记录不存在".to_string())
                 } else {

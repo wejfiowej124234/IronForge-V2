@@ -152,19 +152,19 @@ impl WalletService {
         let api = self.api();
         // ✅ V1 API标准：使用page和page_size参数，不需要tenant_id（从JWT获取）
         let path = format!("/api/v1/wallets?page={}&page_size={}", page, page_size);
-        
+
         #[cfg(debug_assertions)]
         {
             use tracing::info;
             info!("🔍 Request path (before API call): {}", path);
         }
-        
+
         #[derive(serde::Deserialize)]
         struct ListWalletsResp {
             wallets: Vec<WalletDto>,
             total: i64,
         }
-        
+
         match api.get::<ListWalletsResp>(&path).await {
             Ok(resp) => Ok(resp.wallets),
             Err(e) => {

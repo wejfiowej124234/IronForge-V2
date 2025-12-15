@@ -1,6 +1,8 @@
 //! Dashboard Transaction History Preview Component
 //! 交易历史预览组件 - 在Dashboard中显示最近的交易
 
+#![allow(clippy::redundant_closure)]
+
 use crate::components::atoms::card::Card;
 use crate::features::wallet::state::Account;
 use crate::router::Route;

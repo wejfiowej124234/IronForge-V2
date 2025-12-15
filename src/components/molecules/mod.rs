@@ -65,8 +65,8 @@ pub use token_selector::TokenSelector;
 pub use transaction_notification::{
     NotificationType, TransactionNotification, TransactionNotificationContainer,
 };
-pub use wallet_delete_modal::WalletDeleteModal;
 #[allow(unused_imports)]
 pub use user_feedback::{
     ConfirmDialog, ConfirmDialogProps, FeedbackType, UserFeedback, UserFeedbackProps,
 };
+pub use wallet_delete_modal::WalletDeleteModal;

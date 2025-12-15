@@ -62,7 +62,7 @@ impl TokenDetectionService {
         let response: TokenListResponse = api.get(&url).await?;
 
         // Apply whitelist filter
-        let filtered = self.filter_by_whitelist(response.tokens);
+        let filtered = Self::filter_by_whitelist(response.tokens);
 
         Ok(filtered)
     }
@@ -108,7 +108,7 @@ impl TokenDetectionService {
         contract_address: &str,
     ) -> Result<TokenMetadata, AppError> {
         // Validate contract address format
-        self.validate_contract_address(chain, contract_address)?;
+        Self::validate_contract_address(chain, contract_address)?;
 
         // Fetch metadata
         let metadata = self.get_token_metadata(chain, contract_address).await?;
@@ -180,7 +180,7 @@ impl TokenDetectionService {
 
     /// Validate contract address format
     #[allow(dead_code)] // 内部使用
-    fn validate_contract_address(&self, chain: &str, address: &str) -> Result<(), AppError> {
+    fn validate_contract_address(chain: &str, address: &str) -> Result<(), AppError> {
         match chain.to_lowercase().as_str() {
             "eth" | "bsc" | "polygon" | "avalanche" => {
                 // EVM chains: 0x + 40 hex chars
@@ -209,7 +209,7 @@ impl TokenDetectionService {
     }
 
     /// Filter tokens by whitelist (security measure)
-    fn filter_by_whitelist(&self, tokens: Vec<TokenMetadata>) -> Vec<TokenMetadata> {
+    fn filter_by_whitelist(tokens: Vec<TokenMetadata>) -> Vec<TokenMetadata> {
         // Whitelist of known legitimate tokens
         let whitelist: HashSet<&str> = [
             // Ethereum mainnet
@@ -295,30 +295,26 @@ mod tests {
 
     #[test]
     fn test_evm_address_validation() {
-        let app_state = AppState::new();
-        let service = TokenDetectionService::new(app_state);
-
         // Valid EVM address
-        assert!(service
-            .validate_contract_address("eth", "0x1234567890123456789012345678901234567890")
-            .is_ok());
+        assert!(TokenDetectionService::validate_contract_address(
+            "eth",
+            "0x1234567890123456789012345678901234567890"
+        )
+        .is_ok());
 
         // Invalid: missing 0x
-        assert!(service
-            .validate_contract_address("eth", "1234567890123456789012345678901234567890")
-            .is_err());
+        assert!(TokenDetectionService::validate_contract_address(
+            "eth",
+            "1234567890123456789012345678901234567890"
+        )
+        .is_err());
 
         // Invalid: wrong length
-        assert!(service
-            .validate_contract_address("eth", "0x123456")
-            .is_err());
+        assert!(TokenDetectionService::validate_contract_address("eth", "0x123456").is_err());
     }
 
     #[test]
     fn test_whitelist_filtering() {
-        let app_state = AppState::new();
-        let service = TokenDetectionService::new(app_state);
-
         let tokens = vec![
             TokenMetadata {
                 chain: "eth".to_string(),
@@ -342,7 +338,7 @@ mod tests {
             },
         ];
 
-        let filtered = service.filter_by_whitelist(tokens);
+        let filtered = TokenDetectionService::filter_by_whitelist(tokens);
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].symbol, "USDT");
     }

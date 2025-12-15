@@ -63,12 +63,12 @@ pub fn UserFeedback(mut props: UserFeedbackProps) -> Element {
     use_effect({
         let mut visible_sig = visible;
         let auto_hide = props.auto_hide_ms;
-        let on_close = props.on_close.clone();
+        let on_close = props.on_close;
 
         move || {
             if props.visible && auto_hide > 0 {
                 spawn(async move {
-                    gloo_timers::future::TimeoutFuture::new(auto_hide as u32).await;
+                    gloo_timers::future::TimeoutFuture::new(auto_hide).await;
                     visible_sig.set(false);
                     if let Some(ref handler) = on_close {
                         handler.call(());

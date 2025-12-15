@@ -19,7 +19,7 @@ pub fn Navbar() -> Element {
     let user_state = app_state.user.read();
     let is_authenticated = user_state.is_authenticated;
     let mut show_mobile_menu = use_signal(|| false);
-    
+
     // 获取翻译函数
     let t = crate::i18n::use_translation();
 
@@ -89,7 +89,7 @@ pub fn Navbar() -> Element {
                         class: "flex items-center gap-2",
                         // 语言切换器
                         LanguageSwitcher {}
-                        
+
                         if is_authenticated {
                             // 用户信息
                             div {
@@ -120,7 +120,7 @@ pub fn Navbar() -> Element {
                                 size: ButtonSize::Small,
                                 onclick: move |_| {
                                     let auth_ctrl = auth_controller;
-                                    let nav = navigator.clone();
+                                    let nav = navigator;
                                     spawn(async move {
                                         // 调用异步登出方法（清除本地状态并调用后端API）
                                         let _ = auth_ctrl.logout().await;

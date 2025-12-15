@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_validate_address() {
-        let eth_addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb";
+        let eth_addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb6";
         assert!(PaymentValidator::validate_address(eth_addr, None).is_ok());
         assert!(PaymentValidator::validate_address(eth_addr, Some(ChainType::Ethereum)).is_ok());
     }

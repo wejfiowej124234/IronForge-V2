@@ -237,7 +237,7 @@ impl PaymentRouter {
         let target_account = wallet
             .accounts
             .iter()
-            .find(|acc| ChainType::from_str(&acc.chain).map_or(false, |c| c == target_chain));
+            .find(|acc| ChainType::from_str(&acc.chain) == Some(target_chain));
 
         // 2. 检查目标链是否有足够余额
         if let Some(account) = target_account {
@@ -499,8 +499,9 @@ impl PaymentRouter {
             .filter(|&v| v > 0.0 && v.is_finite() && v <= 0.1) // 验证范围：0-10%
             .or_else(|| {
                 // 尝试反向链组合
-                let reverse_key = format!("ESTIMATED_BRIDGE_FEE_RATE_{}_{}", 
-                    to.as_str().to_uppercase(), 
+                let reverse_key = format!(
+                    "ESTIMATED_BRIDGE_FEE_RATE_{}_{}",
+                    to.as_str().to_uppercase(),
                     from.as_str().to_uppercase()
                 );
                 std::env::var(&reverse_key)
@@ -517,8 +518,9 @@ impl PaymentRouter {
             })
             .or_else(|| {
                 // 降级：尝试读取旧的格式（兼容性）
-                let pair_key_old = format!("ESTIMATED_BRIDGE_FEE_{}_{}", 
-                    from.as_str().to_uppercase(), 
+                let pair_key_old = format!(
+                    "ESTIMATED_BRIDGE_FEE_{}_{}",
+                    from.as_str().to_uppercase(),
                     to.as_str().to_uppercase()
                 );
                 std::env::var(&pair_key_old)

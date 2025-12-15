@@ -164,10 +164,8 @@ pub fn OnboardingTour(
                                         if let Some(handler) = on_close {
                                             handler.call(());
                                         }
-                                    } else {
-                                        if let Some(handler) = on_next {
-                                            handler.call(());
-                                        }
+                                    } else if let Some(handler) = on_next {
+                                        handler.call(());
                                     }
                                 },
                                 if is_last {

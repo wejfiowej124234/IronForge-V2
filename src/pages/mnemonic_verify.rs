@@ -1,6 +1,12 @@
 //! Mnemonic Verify Page - 助记词验证页面
 //! 随机选择3个位置进行验证，提升用户体验
 
+#![allow(
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::clone_on_copy
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::molecules::ErrorMessage;
@@ -30,7 +36,7 @@ fn WordButton(
             onclick: move |_| {
                 on_click.call(());
             },
-            {word.clone()}
+            {word}
         }
     }
 }
@@ -65,9 +71,8 @@ pub fn MnemonicVerify(
             positions.swap(i, j);
         }
         // 只取前3个位置进行验证（提升用户体验）
-        let selected = positions.into_iter().take(3).collect::<Vec<usize>>();
         // 确保只返回3个位置
-        selected
+        positions.into_iter().take(3).collect::<Vec<usize>>()
     });
 
     // 当前验证的位置索引（在verify_positions中的索引）

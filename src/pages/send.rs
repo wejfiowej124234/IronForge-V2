@@ -2,14 +2,16 @@
 //! 流程：选择代币 → 输入地址（自动验证）→ 输入金额 → 确认发送
 //! 符合行业标准：MetaMask、Trust Wallet、Coinbase Wallet
 
+#![allow(clippy::clone_on_copy, clippy::redundant_closure)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};
 use crate::components::atoms::modal::Modal;
 use crate::components::molecules::{ErrorMessage, GasFeeCard, TokenSelector};
 use crate::features::wallet::hooks::use_wallet;
-use crate::features::wallet::unlock::ensure_wallet_unlocked;
 use crate::features::wallet::state::Account;
+use crate::features::wallet::unlock::ensure_wallet_unlocked;
 use crate::router::Route;
 use crate::services::address_detector::{AddressDetector, ChainType};
 use crate::services::chain_config::ChainConfigManager;
@@ -124,6 +126,7 @@ async fn estimate_gas_limit(
 
 /// 执行直接转账（✅ 使用真实Gas费用，移除硬编码）
 /// 执行直接转账（✅ 使用真实Gas费用，移除硬编码，✅ P0问题修复：余额检查、金额精度、Gas Limit动态估算，✅ 支持多币种）
+#[allow(clippy::too_many_arguments)]
 async fn execute_direct_transfer(
     app_state: &AppState,
     wallet_ctrl: &crate::features::wallet::hooks::WalletController,
@@ -587,8 +590,6 @@ async fn execute_bridge_transfer(
     to_chain: &ChainType,
 ) -> Result<()> {
     use crate::services::bridge::BridgeService;
-    use std::sync::Arc;
-
     // 1. 获取钱包ID
     let wallet_state = app_state.wallet.read();
     let wallet_id = wallet_state
@@ -610,7 +611,7 @@ async fn execute_bridge_transfer(
         .map_err(|e| anyhow!("获取代币符号失败: {}", e))?;
 
     // 3. 调用跨链桥服务
-    let bridge_service = BridgeService::new(Arc::new(app_state.clone()));
+    let bridge_service = BridgeService::new(*app_state);
 
     // 注意：BridgeService的bridge_assets需要wallet名称，这里使用wallet_id
     let bridge_response = bridge_service
@@ -703,12 +704,12 @@ pub fn Send() -> Element {
         let token = selected_token.read().clone();
         let mut detected_chain_mut = detected_chain;
         let mut address_validation_error_mut = address_validation_error;
-        
+
         if !addr.trim().is_empty() {
             match AddressDetector::detect_chain(&addr) {
                 Ok(detected) => {
                     detected_chain_mut.set(Some(detected));
-                    
+
                     // ✅ 如果用户已选择代币，验证地址是否匹配代币的链
                     if let Some(ref token_info) = token {
                         if detected != token_info.chain {
@@ -745,7 +746,7 @@ pub fn Send() -> Element {
     use_effect(move || {
         let mut fee_calculating_mut = fee_calculating;
         let mut error_message_mut = error_message;
-        
+
         // 当选择了代币、输入了地址和金额后，自动计算费用
         if let (Some(token), Some(_detected), Some(wallet)) = (
             selected_token.read().as_ref(),
@@ -777,7 +778,7 @@ pub fn Send() -> Element {
                     });
                 }
                 Err(e) => {
-                    if amount.read().len() > 0 {
+                    if !amount.read().is_empty() {
                         error_message_mut.set(Some(e.to_string()));
                     }
                 }
@@ -803,7 +804,7 @@ pub fn Send() -> Element {
 
         spawn(async move {
             gas_load.set(true);
-            
+
             // 计算Gas费用
             let gas_service = GasService::new(app_state_clone.clone());
             match gas_service.get_recommended(chain_str).await {
@@ -814,20 +815,26 @@ pub fn Send() -> Element {
                     // 静默失败，不阻塞用户
                 }
             }
-            
+
             // 计算平台服务费（如果输入了金额）
             if !amt.trim().is_empty() {
                 if let Ok(amount_f64) = amt.parse::<f64>() {
                     if amount_f64 > 0.0 {
                         let fee_service = FeeService::new(app_state_clone.clone());
-                        match fee_service.calculate(
-                            chain_str,
-                            "transfer",  // 发送操作
-                            amount_f64
-                        ).await {
+                        match fee_service
+                            .calculate(
+                                chain_str, "transfer", // 发送操作
+                                amount_f64,
+                            )
+                            .await
+                        {
                             Ok(fee_quote) => {
                                 platform_fee_mut.set(Some(fee_quote.platform_fee));
-                                log::info!("平台服务费: {} (规则ID: {})", fee_quote.platform_fee, fee_quote.applied_rule_id);
+                                log::info!(
+                                    "平台服务费: {} (规则ID: {})",
+                                    fee_quote.platform_fee,
+                                    fee_quote.applied_rule_id
+                                );
                             }
                             Err(e) => {
                                 log::error!("计算平台服务费失败: {}", e);
@@ -839,14 +846,16 @@ pub fn Send() -> Element {
             } else {
                 platform_fee_mut.set(None);
             }
-            
+
             gas_load.set(false);
         });
     });
 
     // ✅ 智能选择：根据已选代币的链或检测到的链来匹配钱包账户
     let target_chain = use_memo(move || {
-        selected_token.read().as_ref()
+        selected_token
+            .read()
+            .as_ref()
             .map(|t| t.chain)
             .or_else(|| detected_chain.read().as_ref().copied())
             .unwrap_or(ChainType::Ethereum)
@@ -856,16 +865,21 @@ pub fn Send() -> Element {
     let wallet_addr = use_memo(move || {
         current_wallet.read().as_ref().and_then(|wallet| {
             let target = *target_chain.read();
-            
+
             #[cfg(debug_assertions)]
             {
                 use tracing::info;
                 info!("[Send] Matching wallet account for chain: {:?}", target);
-                info!("[Send] Available accounts: {:?}", wallet.accounts.iter().map(|a| &a.chain).collect::<Vec<_>>());
+                info!(
+                    "[Send] Available accounts: {:?}",
+                    wallet.accounts.iter().map(|a| &a.chain).collect::<Vec<_>>()
+                );
             }
-            
+
             // 尝试匹配目标链
-            let matched = wallet.accounts.iter()
+            let matched = wallet
+                .accounts
+                .iter()
                 .find(|acc| {
                     let acc_chain = match acc.chain.to_lowercase().as_str() {
                         "ethereum" => ChainType::Ethereum,
@@ -877,7 +891,7 @@ pub fn Send() -> Element {
                     acc_chain == target
                 })
                 .map(|acc| acc.address.clone());
-            
+
             // 如果没有匹配到，fallback到第一个账户
             matched.or_else(|| {
                 #[cfg(debug_assertions)]
@@ -925,7 +939,7 @@ pub fn Send() -> Element {
                                 style: format!("color: {};", Colors::TEXT_PRIMARY),
                                 "1️⃣ 选择代币"
                             }
-                            
+
                             // ✅ 代币选择器：根据钱包链类型加载真实余额代币
                             TokenSelector {
                                 chain: *target_chain.read(),
@@ -1165,7 +1179,6 @@ pub fn Send() -> Element {
                     payment_strategy: payment_strategy.read().clone(),
                     gas_estimate: gas_estimate.read().clone(),
                     on_confirm: EventHandler::new({
-                        let app_state = app_state;
                         let recipient_address_clone = recipient_address;
                         let amount_clone = amount;
                         let payment_strategy_signal = payment_strategy;

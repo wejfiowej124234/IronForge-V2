@@ -26,9 +26,9 @@ pub fn CreateWallet() -> Element {
 /// 创建钱包内容组件
 #[component]
 fn CreateWalletContent() -> Element {
-    let wallet_name = use_signal(|| String::new());
-    let password = use_signal(|| String::new());
-    let confirm_password = use_signal(|| String::new());
+    let wallet_name = use_signal(String::new);
+    let password = use_signal(String::new);
+    let confirm_password = use_signal(String::new);
     let error_message = use_signal(|| Option::<String>::None);
     let is_loading = use_signal(|| false);
 
@@ -102,13 +102,9 @@ fn CreateWalletContent() -> Element {
                             disabled: is_loading(),
                             loading: is_loading(),
                             onclick: {
-                                let wallet_name = wallet_name;
-                                let password = password;
-                                let confirm_password = confirm_password;
                                 let mut error_message = error_message;
                                 let mut is_loading = is_loading;
-                                let wallet_controller = wallet_controller;
-                                let navigator = navigator.clone();
+                                let toasts = app_state.toasts;
 
                                 move |_| {
                                     let name = wallet_name.read().clone();
@@ -134,10 +130,9 @@ fn CreateWalletContent() -> Element {
                                     error_message.set(None);
 
                                     let wallet_ctrl = wallet_controller;
-                                    let nav = navigator.clone();
+                                    let nav = navigator;
                                     let mut loading = is_loading;
                                     let mut error_msg = error_message;
-                                    let toasts = app_state.toasts;
 
                                     spawn(async move {
                                         match wallet_ctrl.create_wallet(&name, &pwd).await {

@@ -172,7 +172,7 @@ mod tests {
 
         // 验证格式
         assert!(calldata.starts_with("0x"));
-        assert_eq!(calldata.len(), 2 + 4 + 64 + 64); // 0x + selector(4) + address(64) + amount(64)
+        assert_eq!(calldata.len(), 2 + 8 + 64 + 64); // 0x + selector(8 hex chars) + address(64) + amount(64)
     }
 
     #[test]

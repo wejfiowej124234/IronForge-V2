@@ -15,7 +15,7 @@ fn default_empty_string() -> String {
 /// URL编码工具函数（使用JavaScript的encodeURIComponent）
 fn encode_uri_component(s: &str) -> String {
     // 使用JavaScript的encodeURIComponent进行URL编码
-    let encoded = js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
+    js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
         .ok()
         .and_then(|f| {
             js_sys::Function::from(f)
@@ -23,8 +23,7 @@ fn encode_uri_component(s: &str) -> String {
                 .ok()
         })
         .and_then(|v| v.as_string())
-        .unwrap_or_else(|| s.to_string());
-    encoded
+        .unwrap_or_else(|| s.to_string())
 }
 
 /// 法币提现报价请求
@@ -118,20 +117,23 @@ pub struct FiatOfframpService {
 }
 
 impl FiatOfframpService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         let api_client = app_state.get_api_client();
-        
+
         // 调试：检查API客户端是否有token
         #[cfg(debug_assertions)]
         {
             use tracing::{info, warn};
             if let Some(token) = api_client.get_token() {
-                info!("FiatOfframpService: API client has token (length: {})", token.len());
+                info!(
+                    "FiatOfframpService: API client has token (length: {})",
+                    token.len()
+                );
             } else {
                 warn!("FiatOfframpService: API client has NO token - requests will fail with 401");
             }
         }
-        
+
         Self {
             api_client: Arc::new(api_client),
         }
@@ -250,6 +252,7 @@ impl FiatOfframpService {
     ///
     /// # 错误处理
     /// 返回用户友好的错误消息
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_order(
         &self,
         token: &str,
@@ -323,7 +326,7 @@ impl FiatOfframpService {
 
         // 发送API请求
         self.api_client
-            .post::<FiatOfframpOrderResponse, CreateFiatOfframpOrderRequest>(&url, &request)
+            .post::<FiatOfframpOrderResponse, CreateFiatOfframpOrderRequest>(url, &request)
             .await
             .map_err(|e| {
                 // 企业级错误处理
@@ -358,7 +361,10 @@ impl FiatOfframpService {
             return Err("订单ID不能为空".to_string());
         }
 
-        let url = format!("/api/v1/fiat/offramp/orders/{}", encode_uri_component(order_id));
+        let url = format!(
+            "/api/v1/fiat/offramp/orders/{}",
+            encode_uri_component(order_id)
+        );
 
         self.api_client
             .get::<FiatOfframpOrderStatus>(&url)

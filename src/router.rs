@@ -9,8 +9,9 @@ use dioxus::prelude::*;
 use crate::components::navbar::Navbar;
 use crate::components::route_guard::AuthGuard;
 use crate::pages::{
-    Bridge, Buy, CreateWallet, Dashboard, ImportWallet, Landing, Login, MnemonicBackup, MnemonicVerify,
-    NotFound, Orders, Receive, Register, Sell, Send, Swap, WalletCreated, WalletDetail,
+    Bridge, Buy, CreateWallet, Dashboard, ImportWallet, Landing, Login, MnemonicBackup,
+    MnemonicVerify, NotFound, Orders, Receive, Register, Sell, Send, Swap, WalletCreated,
+    WalletDetail,
 };
 
 /// 路由定义

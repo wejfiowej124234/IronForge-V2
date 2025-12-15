@@ -162,7 +162,6 @@ pub fn MnemonicBackup(
                                     class: Some("flex-1".to_string()),
                                     onclick: {
                                         let phrase = phrase.clone();
-                                        let app_state = app_state;
                                         move |_| {
                                             let phrase_clone = phrase.clone();
                                             let toasts = app_state.toasts;
@@ -188,7 +187,6 @@ pub fn MnemonicBackup(
                                     class: Some("flex-1".to_string()),
                                     onclick: {
                                         let phrase = phrase.clone();
-                                        let app_state = app_state;
                                         move |_| {
                                             let phrase_clone = phrase.clone();
                                             let toasts = app_state.toasts;
@@ -227,7 +225,7 @@ pub fn MnemonicBackup(
                                                     let uint8_array = js_sys::Uint8Array::new_with_length(content.len() as u32);
                                                     let bytes = content.as_bytes();
                                                     for (i, &byte) in bytes.iter().enumerate() {
-                                                        uint8_array.set_index(i as u32, byte as u8);
+                                                        uint8_array.set_index(i as u32, byte);
                                                     }
                                                     blob_parts.push(&uint8_array);
 
@@ -245,7 +243,7 @@ pub fn MnemonicBackup(
                                                                 link_element.set_attribute("style", "display: none").ok();
 
                                                                 if let Some(body) = document.body() {
-                                                                    if let Err(_) = body.append_child(&link) {
+                                                                    if body.append_child(&link).is_err() {
                                                                         AppState::show_error(toasts, "下载失败".to_string());
                                                                         let _ = Url::revoke_object_url(&url);
                                                                         return;

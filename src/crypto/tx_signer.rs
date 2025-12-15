@@ -36,6 +36,14 @@ impl EthereumTxSigner {
     ) -> Result<String> {
         // 解析私钥
         let mut key_bytes = hex::decode(private_key_hex.trim_start_matches("0x"))?;
+        if key_bytes.len() != 32 {
+            key_bytes.zeroize();
+            return Err(anyhow!(
+                "Invalid private key length: expected 32 bytes, got {}",
+                key_bytes.len()
+            ));
+        }
+
         let signing_key = SigningKey::from_bytes(key_bytes.as_slice().into())
             .map_err(|e| anyhow!("Invalid private key: {}", e))?;
 
@@ -83,7 +91,10 @@ impl EthereumTxSigner {
 
         // 计算v值（EIP-155）
         let v = if chain_id > 0 {
-            35 + (chain_id * 2)
+            chain_id
+                .checked_mul(2)
+                .and_then(|x| x.checked_add(35))
+                .ok_or_else(|| anyhow!("Invalid chain_id (overflow): {}", chain_id))?
         } else {
             27
         };
@@ -125,6 +136,7 @@ impl EthereumTxSigner {
     ///
     /// # Returns
     /// 签名的交易（RLP编码的十六进制字符串）
+    #[allow(clippy::too_many_arguments)]
     pub fn sign_transaction_with_data(
         private_key_hex: &str,
         to: &str,
@@ -137,6 +149,14 @@ impl EthereumTxSigner {
     ) -> Result<String> {
         // 解析私钥
         let mut key_bytes = hex::decode(private_key_hex.trim_start_matches("0x"))?;
+        if key_bytes.len() != 32 {
+            key_bytes.zeroize();
+            return Err(anyhow!(
+                "Invalid private key length: expected 32 bytes, got {}",
+                key_bytes.len()
+            ));
+        }
+
         let signing_key = SigningKey::from_bytes(key_bytes.as_slice().into())
             .map_err(|e| anyhow!("Invalid private key: {}", e))?;
 
@@ -183,7 +203,10 @@ impl EthereumTxSigner {
 
         // 计算v值（EIP-155）
         let v = if chain_id > 0 {
-            35 + (chain_id * 2)
+            chain_id
+                .checked_mul(2)
+                .and_then(|x| x.checked_add(35))
+                .ok_or_else(|| anyhow!("Invalid chain_id (overflow): {}", chain_id))?
         } else {
             27
         };

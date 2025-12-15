@@ -1,11 +1,13 @@
 //! Dashboard Page - 仪表盘页面
 //! 显示钱包列表，支持选择钱包和查看资产
 
+#![allow(clippy::clone_on_copy)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::molecules::WalletDeleteModal;
-use crate::components::wallet_unlock_modal::WalletUnlockModal;
 use crate::components::route_guard::AuthGuard;
+use crate::components::wallet_unlock_modal::WalletUnlockModal;
 use crate::features::auth::hooks::use_auth;
 use crate::features::wallet::hooks::use_wallet;
 use crate::features::wallet::state::Wallet;
@@ -95,15 +97,15 @@ fn DashboardContent() -> Element {
     use_effect(move || {
         let wallet_ctrl = use_wallet();
         let app_state_for_timer = app_state;
-        
+
         spawn(async move {
             loop {
                 gloo_timers::future::TimeoutFuture::new(30000).await; // 每30秒检查一次
-                
+
                 let wallet_state = app_state_for_timer.wallet.read();
                 let unlock_times = app_state_for_timer.wallet_unlock_time.read();
                 let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
-                
+
                 // 检查所有钱包的解锁状态
                 for wallet in wallet_state.wallets.iter() {
                     if !wallet.is_locked {

@@ -430,7 +430,7 @@ pub fn OrderTracking(props: OrderTrackingProps) -> Element {
                         if let Some(ref on_cancel) = props.on_cancel {
                             {
                                 let order_id = props.order.order_id.clone();
-                                let handler = on_cancel.clone();
+                                let handler = *on_cancel;
                                 rsx! {
                                     button {
                                         class: "px-4 py-2 rounded-lg font-medium text-sm transition-all",
@@ -453,7 +453,7 @@ pub fn OrderTracking(props: OrderTrackingProps) -> Element {
                         if let Some(ref on_retry) = props.on_retry {
                             {
                                 let order_id = props.order.order_id.clone();
-                                let handler = on_retry.clone();
+                                let handler = *on_retry;
                                 rsx! {
                                     button {
                                         class: "px-4 py-2 rounded-lg font-medium text-sm transition-all",

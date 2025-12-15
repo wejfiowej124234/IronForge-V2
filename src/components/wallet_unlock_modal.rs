@@ -1,6 +1,13 @@
 //! Wallet Unlock Modal - 钱包解锁模态框
 //! 用于交易签名前解锁钱包
 
+#![allow(
+    clippy::clone_on_copy,
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::type_complexity
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::input::{Input, InputType};
 use crate::components::atoms::modal::Modal;

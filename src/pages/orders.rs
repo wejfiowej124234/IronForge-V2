@@ -1,11 +1,17 @@
 //! Orders Page - 订单列表页面
 //! 显示用户的所有充值/提现订单
 
+#![allow(
+    clippy::redundant_closure,
+    clippy::clone_on_copy,
+    clippy::redundant_locals
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::molecules::limit_display::{KycLevel, LimitDisplay, LimitInfo};
-use crate::services::fiat_onramp::FiatOnrampService;
 use crate::services::fiat_offramp::FiatOfframpService;
+use crate::services::fiat_onramp::FiatOnrampService;
 use crate::services::user::UserService;
 use crate::shared::design_tokens::Colors;
 use crate::shared::state::AppState;
@@ -43,7 +49,7 @@ pub struct OrderStats {
 pub fn Orders() -> Element {
     let app_state = use_context::<Signal<AppState>>();
     let navigator = use_navigator();
-    
+
     // 订单状态
     let onramp_orders = use_signal(|| Vec::<OrderItem>::new());
     let offramp_orders = use_signal(|| Vec::<OrderItem>::new());
@@ -51,12 +57,12 @@ pub fn Orders() -> Element {
     let mut refreshing = use_signal(|| false);
     let error_message = use_signal(|| Option::<String>::None);
     let mut active_tab = use_signal(|| "onramp".to_string()); // "onramp" or "offramp"
-    
+
     // 搜索和筛选状态
     let mut search_query = use_signal(|| String::new());
     let mut status_filter = use_signal(|| "all".to_string()); // "all", "pending", "completed", "failed"
     let expanded_order = use_signal(|| Option::<String>::None); // 展开的订单ID
-    
+
     // 统计信息
     let onramp_stats = use_signal(|| OrderStats {
         total_orders: 0,
@@ -70,10 +76,10 @@ pub fn Orders() -> Element {
         completed_count: 0,
         failed_count: 0,
     });
-    
+
     // KYC状态（从后端获取真实数据）
     let kyc_info = use_signal(|| LimitInfo {
-        kyc_level: KycLevel::None,  // 默认未认证
+        kyc_level: KycLevel::None, // 默认未认证
         daily_used: 0.0,
         daily_limit: 0.0,
         monthly_used: 0.0,
@@ -87,7 +93,8 @@ pub fn Orders() -> Element {
 
         move || {
             spawn(async move {
-                let user_service = UserService::new(Arc::new(app_state_clone.read().get_api_client()));
+                let user_service =
+                    UserService::new(Arc::new(app_state_clone.read().get_api_client()));
                 match user_service.get_kyc_status().await {
                     Ok(kyc_status) => {
                         // 映射KYC等级
@@ -144,10 +151,11 @@ pub fn Orders() -> Element {
                 drop(user_state);
 
                 // 加载充值订单
-                let onramp_service = FiatOnrampService::new(Arc::new(app_state_clone.read().clone()));
+                let onramp_service = FiatOnrampService::new(*app_state_clone.read());
                 match onramp_service.get_orders(None, None, None).await {
                     Ok(orders) => {
-                        let order_items: Vec<OrderItem> = orders.orders
+                        let order_items: Vec<OrderItem> = orders
+                            .orders
                             .into_iter()
                             .map(|o| OrderItem {
                                 order_id: o.order_id.clone(),
@@ -164,13 +172,22 @@ pub fn Orders() -> Element {
                                 error_message: o.error_message.clone(),
                             })
                             .collect();
-                        
+
                         // 计算统计信息
                         let stats = OrderStats {
                             total_orders: order_items.len(),
-                            pending_count: order_items.iter().filter(|o| o.status == "pending").count(),
-                            completed_count: order_items.iter().filter(|o| o.status == "completed").count(),
-                            failed_count: order_items.iter().filter(|o| o.status == "failed" || o.status == "cancelled").count(),
+                            pending_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "pending")
+                                .count(),
+                            completed_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "completed")
+                                .count(),
+                            failed_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "failed" || o.status == "cancelled")
+                                .count(),
                         };
                         onramp_stats_sig.set(stats);
                         onramp_orders_sig.set(order_items);
@@ -182,10 +199,11 @@ pub fn Orders() -> Element {
                 }
 
                 // 加载提现订单
-                let offramp_service = FiatOfframpService::new(Arc::new(app_state_clone.read().clone()));
+                let offramp_service = FiatOfframpService::new(*app_state_clone.read());
                 match offramp_service.get_orders(None, None, None).await {
                     Ok(orders) => {
-                        let order_items: Vec<OrderItem> = orders.orders
+                        let order_items: Vec<OrderItem> = orders
+                            .orders
                             .into_iter()
                             .map(|o| OrderItem {
                                 order_id: o.order_id.clone(),
@@ -202,13 +220,22 @@ pub fn Orders() -> Element {
                                 error_message: o.error_message.clone(),
                             })
                             .collect();
-                        
+
                         // 计算统计信息
                         let stats = OrderStats {
                             total_orders: order_items.len(),
-                            pending_count: order_items.iter().filter(|o| o.status == "pending").count(),
-                            completed_count: order_items.iter().filter(|o| o.status == "completed").count(),
-                            failed_count: order_items.iter().filter(|o| o.status == "failed" || o.status == "cancelled").count(),
+                            pending_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "pending")
+                                .count(),
+                            completed_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "completed")
+                                .count(),
+                            failed_count: order_items
+                                .iter()
+                                .filter(|o| o.status == "failed" || o.status == "cancelled")
+                                .count(),
                         };
                         offramp_stats_sig.set(stats);
                         offramp_orders_sig.set(order_items);
@@ -228,10 +255,10 @@ pub fn Orders() -> Element {
         div {
             class: "min-h-screen p-4",
             style: format!("background: {};", Colors::BG_PRIMARY),
-            
+
             div {
                 class: "container mx-auto max-w-6xl px-4 sm:px-6 py-8",
-                
+
                 // 页面标题和刷新按钮
                 div { class: "mb-6 flex items-center justify-between",
                     div {
@@ -286,7 +313,7 @@ pub fn Orders() -> Element {
                         } else {
                             offramp_stats.read().clone()
                         };
-                        
+
                         rsx! {
                             Card {
                                 variant: crate::components::atoms::card::CardVariant::Base,
@@ -515,7 +542,7 @@ pub fn Orders() -> Element {
                             rsx! {
                                 div { class: "space-y-4",
                                     for order in orders {
-                                        EnhancedOrderCard { 
+                                        EnhancedOrderCard {
                                             order: order.clone(),
                                             expanded_order: expanded_order,
                                         }
@@ -536,7 +563,10 @@ fn EnhancedOrderCard(order: OrderItem, expanded_order: Signal<Option<String>>) -
     // 企业级最佳实践：使用Arc共享所有权，避免多次clone的内存开销
     // 在组件初始化时创建Arc，后续所有闭包共享同一个Arc引用
     let order_arc = Arc::new(order);
-    let is_expanded = expanded_order.read().as_ref().map_or(false, |id| id == &order_arc.order_id);
+    let is_expanded = expanded_order
+        .read()
+        .as_ref()
+        .is_some_and(|id| id == &order_arc.order_id);
 
     let status_color = match order_arc.status.as_str() {
         "pending" => "rgba(251, 191, 36, 1)",
@@ -570,7 +600,7 @@ fn EnhancedOrderCard(order: OrderItem, expanded_order: Signal<Option<String>>) -
             children: rsx! {
                 div { class: "space-y-3",
                     // 订单头部（可点击展开）
-                    div { 
+                    div {
                         class: "flex items-center justify-between cursor-pointer",
                         onclick: {
                             let order_id = order_arc.order_id.clone();
@@ -659,7 +689,7 @@ fn EnhancedOrderCard(order: OrderItem, expanded_order: Signal<Option<String>>) -
                     if is_expanded {
                         div { class: "pt-3 border-t space-y-3",
                             style: format!("border-color: {};", Colors::BORDER_PRIMARY),
-                            
+
                             // 完整订单ID
                             div {
                                 div {
@@ -727,7 +757,7 @@ fn EnhancedOrderCard(order: OrderItem, expanded_order: Signal<Option<String>>) -
                                         }
                                     }
                                 }
-                                
+
                                 // 复制订单ID按钮
                                 Button {
                                     variant: ButtonVariant::Secondary,

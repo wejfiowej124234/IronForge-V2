@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Cache Service Tests - 缓存服务测试
 //! 企业级单元测试，使用wasm-bindgen-test
 

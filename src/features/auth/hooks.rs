@@ -61,30 +61,38 @@ impl AuthController {
         let response = auth_service.login_email(email, password).await?;
 
         // 更新用户状态
-            // 企业级实现：登录成功后，统一更新 UserState 并持久化
-            {
-                let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
-                let mut user_state = app_state.user.write();
-                user_state.is_authenticated = true;
-                user_state.user_id = Some(response.user.id.clone());
-                user_state.email = Some(response.user.email.clone());
-                user_state.username = None;
-                user_state.access_token = Some(response.access_token.clone());
-                user_state.token_created_at = Some(now); // 记录token创建时间
-                user_state.created_at = Some(response.user.created_at.clone());
-                let _ = user_state.save();
-            } // Drop user_state borrow here
+        // 企业级实现：登录成功后，统一更新 UserState 并持久化
+        {
+            let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
+            let mut user_state = app_state.user.write();
+            user_state.is_authenticated = true;
+            user_state.user_id = Some(response.user.id.clone());
+            user_state.email = Some(response.user.email.clone());
+            user_state.username = None;
+            user_state.access_token = Some(response.access_token.clone());
+            user_state.token_created_at = Some(now); // 记录token创建时间
+            user_state.created_at = Some(response.user.created_at.clone());
+            let _ = user_state.save();
+        } // Drop user_state borrow here
 
         // 验证token确实被保存（防止LocalStorage失败）
         {
             let user_state = app_state.user.read();
-            if user_state.access_token.is_none() || user_state.access_token.as_ref().map(|t| t.is_empty()).unwrap_or(true) {
+            if user_state.access_token.is_none()
+                || user_state
+                    .access_token
+                    .as_ref()
+                    .map(|t| t.is_empty())
+                    .unwrap_or(true)
+            {
                 #[cfg(debug_assertions)]
                 {
                     use tracing::error;
                     error!("❌ Token保存失败！可能是LocalStorage被禁用或浏览器隐私模式");
                 }
-                return Err(anyhow::anyhow!("Token保存失败，请检查浏览器LocalStorage设置"));
+                return Err(anyhow::anyhow!(
+                    "Token保存失败，请检查浏览器LocalStorage设置"
+                ));
             }
         }
 
@@ -125,7 +133,10 @@ impl AuthController {
                 #[cfg(debug_assertions)]
                 {
                     use tracing::debug;
-                    debug!("🔄 同步钱包: Token已同步到API客户端 (length: {})", token.len());
+                    debug!(
+                        "🔄 同步钱包: Token已同步到API客户端 (length: {})",
+                        token.len()
+                    );
                 }
             } else {
                 #[cfg(debug_assertions)]
@@ -156,17 +167,20 @@ impl AuthController {
                 // 将后端钱包转换为前端钱包格式
                 use crate::features::wallet::state::{Account, AccountType, Wallet};
                 let backend_wallet_count = backend_wallets.len(); // 保存长度用于日志
-                
+
                 #[cfg(debug_assertions)]
                 {
                     use tracing::info;
-                    info!("🔄 开始同步钱包: 后端返回 {} 个单链钱包记录", backend_wallet_count);
+                    info!(
+                        "🔄 开始同步钱包: 后端返回 {} 个单链钱包记录",
+                        backend_wallet_count
+                    );
                 }
-                
+
                 let mut wallet_state = app_state.wallet.write();
 
                 // ✅ 行业最佳实践：三层防护策略
-                // 
+                //
                 // 第一层：检测数据库重建（后端返回空 + 本地有钱包）
                 // 第二层：自动重新同步本地钱包到后端
                 // 第三层：即使同步失败，本地钱包仍然可用
@@ -181,16 +195,19 @@ impl AuthController {
                         );
                         warn!("🔄 自动触发：重新同步本地钱包到后端");
                     }
-                    
+
                     // 自动重新同步：将本地钱包推送到后端
                     drop(wallet_state); // 释放锁，允许re_sync修改
-                    
+
                     match self.re_sync_local_wallets_to_backend().await {
                         Ok(synced_count) => {
                             #[cfg(debug_assertions)]
                             {
                                 use tracing::info;
-                                info!("✅ 自动同步成功：已将 {} 个本地钱包重新注册到后端", synced_count);
+                                info!(
+                                    "✅ 自动同步成功：已将 {} 个本地钱包重新注册到后端",
+                                    synced_count
+                                );
                                 info!("🔄 重新从后端加载钱包列表（避免递归使用循环重试）");
                             }
                             // ✅ 修复递归问题：使用Box::pin包装递归调用
@@ -246,12 +263,14 @@ impl AuthController {
                     } else {
                         backend_wallet.name.clone()
                     };
-                    
+
                     #[cfg(debug_assertions)]
                     {
                         use tracing::info;
-                        info!("  处理后端钱包: '{}' (链: {}, group_id: {:?})", 
-                            backend_wallet.name, backend_wallet.chain, backend_wallet.group_id);
+                        info!(
+                            "  处理后端钱包: '{}' (链: {}, group_id: {:?})",
+                            backend_wallet.name, backend_wallet.chain, backend_wallet.group_id
+                        );
                     }
 
                     // 查找或创建钱包（使用group_id或名称作为key）
@@ -259,7 +278,8 @@ impl AuthController {
                     // 如果不存在，为这个钱包组创建一个新的钱包ID
                     let wallet = wallet_map.entry(merge_key.clone()).or_insert_with(|| {
                         // 尝试从本地存储中查找已有的钱包ID
-                        let id = if let Some(existing_id) = name_to_id_map.get(&backend_wallet.name) {
+                        let id = if let Some(existing_id) = name_to_id_map.get(&backend_wallet.name)
+                        {
                             existing_id.clone()
                         } else {
                             // 如果本地存储中没有，生成新的钱包ID
@@ -280,7 +300,7 @@ impl AuthController {
                         "TON" => "ton".to_string(),
                         _ => backend_wallet.chain.to_lowercase(),
                     };
-                    
+
                     // 根据链推断派生路径
                     let derivation_path = match chain_name.as_str() {
                         "ethereum" => Some("m/44'/60'/0'/0/0".to_string()),
@@ -289,12 +309,12 @@ impl AuthController {
                         "ton" => Some("m/44'/607'/0'/0'/0".to_string()),
                         _ => None,
                     };
-                    
+
                     wallet.accounts.push(Account {
                         address: backend_wallet.address.clone(),
                         chain: chain_name,
                         public_key: backend_wallet.public_key.clone(), // ✅ 使用后端返回的公钥
-                        derivation_path, // 推断的派生路径
+                        derivation_path,                               // 推断的派生路径
                         account_type: AccountType::Derived,
                         balance: "0".to_string(), // 余额需要单独获取
                     });
@@ -306,10 +326,17 @@ impl AuthController {
                 #[cfg(debug_assertions)]
                 {
                     use tracing::info;
-                    info!("✅ 钱包合并完成: {} 个钱包（后端返回 {} 个单链钱包）", 
-                        wallet_state.wallets.len(), backend_wallet_count);
+                    info!(
+                        "✅ 钱包合并完成: {} 个钱包（后端返回 {} 个单链钱包）",
+                        wallet_state.wallets.len(),
+                        backend_wallet_count
+                    );
                     for wallet in &wallet_state.wallets {
-                        info!("  📦 钱包: {} - {} 个账户", wallet.name, wallet.accounts.len());
+                        info!(
+                            "  📦 钱包: {} - {} 个账户",
+                            wallet.name,
+                            wallet.accounts.len()
+                        );
                         for account in &wallet.accounts {
                             info!("    └─ {}: {}", account.chain, &account.address[..8]);
                         }
@@ -470,7 +497,7 @@ impl AuthController {
     }
 
     /// 🔄 重新同步本地钱包到后端（数据库重建后的自动修复）
-    /// 
+    ///
     /// 行业最佳实践：
     /// 1. 从IndexedDB读取所有本地钱包
     /// 2. 提取公开信息（地址、公钥、名称）
@@ -478,32 +505,37 @@ impl AuthController {
     /// 4. 返回同步成功的钱包数量
     pub async fn re_sync_local_wallets_to_backend(&self) -> Result<usize> {
         use crate::features::wallet::state::WalletState;
-        use crate::services::wallet::{BatchCreateWalletsRequest, WalletRegistrationInfo, WalletService};
+        use crate::services::wallet::{
+            BatchCreateWalletsRequest, WalletRegistrationInfo, WalletService,
+        };
         use gloo_storage::{LocalStorage, Storage};
-        
+
         // 1. 从LocalStorage加载本地钱包状态
         let local_wallet_state = LocalStorage::get::<WalletState>("wallet_state")
             .map_err(|e| anyhow::anyhow!("无法读取本地钱包状态: {}", e))?;
-        
+
         if local_wallet_state.wallets.is_empty() {
             return Ok(0);
         }
-        
+
         #[cfg(debug_assertions)]
         {
             use tracing::info;
-            info!("🔍 发现 {} 个本地钱包需要重新同步", local_wallet_state.wallets.len());
+            info!(
+                "🔍 发现 {} 个本地钱包需要重新同步",
+                local_wallet_state.wallets.len()
+            );
         }
-        
+
         // 2. 将本地钱包转换为后端注册格式
         let mut wallet_registrations = Vec::new();
-        
+
         for local_wallet in local_wallet_state.wallets.iter() {
             // 跳过没有账户的钱包
             if local_wallet.accounts.is_empty() {
                 continue;
             }
-            
+
             // 为每个账户创建注册请求
             for account in local_wallet.accounts.iter() {
                 let chain_str = match account.chain.as_str() {
@@ -513,7 +545,7 @@ impl AuthController {
                     "ton" => "TON",
                     _ => continue, // 跳过未知链
                 };
-                
+
                 wallet_registrations.push(WalletRegistrationInfo {
                     chain: chain_str.to_uppercase(),
                     address: account.address.clone(),
@@ -523,34 +555,40 @@ impl AuthController {
                 });
             }
         }
-        
+
         if wallet_registrations.is_empty() {
             return Ok(0);
         }
-        
+
         #[cfg(debug_assertions)]
         {
             use tracing::info;
-            info!("📤 准备批量注册 {} 个账户到后端", wallet_registrations.len());
+            info!(
+                "📤 准备批量注册 {} 个账户到后端",
+                wallet_registrations.len()
+            );
         }
-        
+
         // 3. 批量注册到后端
         let app_state = self.app_state;
         let wallet_service = WalletService::new(app_state);
-        let batch_request = BatchCreateWalletsRequest { 
-            wallets: wallet_registrations 
+        let batch_request = BatchCreateWalletsRequest {
+            wallets: wallet_registrations,
         };
-        
+
         match wallet_service.batch_create_wallets(batch_request).await {
             Ok(response) => {
                 let success_count = response.wallets.len();
                 let failed_count = response.failed.len();
-                
+
                 #[cfg(debug_assertions)]
                 {
                     use tracing::info;
-                    info!("✅ 批量注册完成: {} 成功, {} 失败", success_count, failed_count);
-                    
+                    info!(
+                        "✅ 批量注册完成: {} 成功, {} 失败",
+                        success_count, failed_count
+                    );
+
                     if !response.failed.is_empty() {
                         use tracing::warn;
                         for err in response.failed.iter() {
@@ -558,12 +596,10 @@ impl AuthController {
                         }
                     }
                 }
-                
+
                 Ok(success_count)
             }
-            Err(e) => {
-                Err(anyhow::anyhow!("批量注册失败: {}", e))
-            }
+            Err(e) => Err(anyhow::anyhow!("批量注册失败: {}", e)),
         }
     }
 }

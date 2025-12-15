@@ -15,7 +15,7 @@ pub fn ChainSelector(selected_chain: Signal<String>) -> Element {
     let current_chain = ChainType::from_str(&current_chain_str).unwrap_or(ChainType::Ethereum);
 
     // 所有支持的链
-    let all_chains = vec![
+    let all_chains = [
         ChainType::Ethereum,
         ChainType::BSC,
         ChainType::Polygon,

@@ -15,14 +15,11 @@ pub fn use_gas_estimate(chain: &str) -> Signal<Option<Result<GasEstimateResponse
     let gas_data = use_signal(|| None::<Result<GasEstimateResponse, AppError>>);
 
     {
-        let app_state = app_state.clone();
         let chain = chain.to_string();
-        let gas_data = gas_data.clone();
-
         use_effect(move || {
             let chain_clone = chain.clone();
-            let mut gas_data_clone = gas_data.clone();
-            let app_state_clone = app_state.clone();
+            let mut gas_data_clone = gas_data;
+            let app_state_clone = app_state;
             spawn(async move {
                 let service = GasService::new(app_state_clone);
                 let result = service.estimate_all(&chain_clone).await;

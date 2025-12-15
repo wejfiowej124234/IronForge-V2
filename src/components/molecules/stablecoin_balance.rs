@@ -36,7 +36,7 @@ pub fn StablecoinBalanceCard(
 
     // 从钱包获取实际稳定币余额
     use_effect({
-        let app_state_clone = app_state.clone();
+        let app_state_clone = app_state;
         let chain_clone = current_chain;
         let wallet_opt = current_wallet.read().clone();
         let mut loading_mut = loading;
@@ -55,7 +55,7 @@ pub fn StablecoinBalanceCard(
                 .first()
                 .map(|a| a.address.clone())
                 .unwrap_or_default();
-            let app_state_for_spawn = app_state_clone.clone();
+            let app_state_for_spawn = app_state_clone;
 
             spawn(async move {
                 loading_mut.set(true);
@@ -80,8 +80,8 @@ pub fn StablecoinBalanceCard(
 
                 // 并行获取USDT和USDC余额
                 // 创建两个TokenService实例用于并行调用
-                let token_service1 = TokenService::new(app_state_for_spawn.clone());
-                let token_service2 = TokenService::new(app_state_for_spawn.clone());
+                let token_service1 = TokenService::new(app_state_for_spawn);
+                let token_service2 = TokenService::new(app_state_for_spawn);
                 let chain_clone1 = chain_clone;
                 let chain_clone2 = chain_clone;
                 let usdt_address_clone1 = usdt_address.clone();

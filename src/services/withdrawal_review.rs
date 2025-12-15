@@ -69,7 +69,7 @@ pub struct WithdrawalReviewService {
 }
 
 impl WithdrawalReviewService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self {
             api_client: Arc::new(app_state.get_api_client()),
         }
@@ -127,7 +127,7 @@ impl WithdrawalReviewService {
         let url = "/api/v1/withdrawal/review";
 
         self.api_client
-            .post::<WithdrawalReviewResult, WithdrawalReviewRequest>(&url, &request)
+            .post::<WithdrawalReviewResult, WithdrawalReviewRequest>(url, &request)
             .await
             .map_err(|e| {
                 let error_msg = e.to_string().to_lowercase();

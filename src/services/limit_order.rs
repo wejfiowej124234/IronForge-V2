@@ -118,12 +118,12 @@ pub struct LimitOrderListResponse {
 
 /// 限价单服务
 pub struct LimitOrderService {
-    app_state: Arc<AppState>,
+    app_state: AppState,
 }
 
 impl LimitOrderService {
     /// 创建新的限价单服务实例
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self { app_state }
     }
 
@@ -133,6 +133,7 @@ impl LimitOrderService {
     }
 
     /// 创建限价单
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_order(
         &self,
         order_type: LimitOrderType,
@@ -177,21 +178,19 @@ impl LimitOrderService {
             wallet_id: wallet_id.map(|s| s.to_string()),
         };
 
-        match self.get_api_client()
-            .post::<LimitOrderResponse, CreateLimitOrderRequest>(
-                "/api/v1/limit-orders",
-                &request,
-            )
+        match self
+            .get_api_client()
+            .post::<LimitOrderResponse, CreateLimitOrderRequest>("/api/v1/limit-orders", &request)
             .await
         {
             Ok(resp) => Ok(resp),
             Err(e) => {
                 // ✅ 统一处理401错误：仅在用户已登录且token过期时自动登出
                 if crate::shared::auth_handler::is_unauthorized_error(&e) {
-                    crate::shared::auth_handler::handle_unauthorized_and_redirect(*self.app_state);
+                    crate::shared::auth_handler::handle_unauthorized_and_redirect(self.app_state);
                     // 注意：如果用户本来就没登录，上面的函数不会做任何事
                 }
-                
+
                 // 企业级错误处理：将技术错误转换为用户友好消息
                 let error_msg = e.to_string().to_lowercase();
                 if error_msg.contains("unauthorized") || error_msg.contains("401") {
@@ -217,7 +216,7 @@ impl LimitOrderService {
         &self,
         query: Option<LimitOrderQuery>,
     ) -> Result<LimitOrderListResponse, String> {
-        let query = query.unwrap_or_else(|| LimitOrderQuery {
+        let query = query.unwrap_or(LimitOrderQuery {
             order_type: None,
             status: None,
             page: Some(1),
@@ -244,10 +243,14 @@ impl LimitOrderService {
             "/api/v1/limit-orders".to_string()
         } else {
             let query_string = query_params.join("&");
-            format!("/api/v1/limit-orders?{}", query_string.trim_end_matches('&'))
+            format!(
+                "/api/v1/limit-orders?{}",
+                query_string.trim_end_matches('&')
+            )
         };
 
-        match self.get_api_client()
+        match self
+            .get_api_client()
             .get::<LimitOrderListResponse>(&url)
             .await
         {
@@ -255,7 +258,7 @@ impl LimitOrderService {
             Err(e) => {
                 // ✅ 统一处理401错误：仅在用户已登录且token过期时自动登出
                 if crate::shared::auth_handler::is_unauthorized_error(&e) {
-                    crate::shared::auth_handler::handle_unauthorized_and_redirect(*self.app_state);
+                    crate::shared::auth_handler::handle_unauthorized_and_redirect(self.app_state);
                     // 注意：如果用户本来就没登录，上面的函数不会做任何事
                 }
 

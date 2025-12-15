@@ -333,7 +333,7 @@ fn AccountCard(account: Account, wallet_id: String) -> Element {
 #[component]
 fn TransactionHistory(wallet_id: String, accounts: Vec<Account>) -> Element {
     let app_state = use_context::<AppState>();
-    let transactions = use_signal(|| Vec::<TransactionHistoryItem>::new());
+    let transactions = use_signal(Vec::<TransactionHistoryItem>::new);
     let is_loading = use_signal(|| true);
 
     use_effect(move || {
@@ -480,7 +480,7 @@ fn TransactionRow(transaction: TransactionHistoryItem) -> Element {
                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                         {transaction.amount.clone()} " {transaction.token.clone()}"
                     }
-                    
+
                     // ✅ 费用明细展示（显示真实的后端数据）
                     div {
                         class: "mt-3 pt-3 border-t",
@@ -493,7 +493,7 @@ fn TransactionRow(transaction: TransactionHistoryItem) -> Element {
                         div {
                             class: "space-y-1 text-xs",
                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                            
+
                             // ⛽ Gas费用（区块链网络费用）
                             {
                                 let fee_str = transaction.fee.clone();
@@ -507,7 +507,7 @@ fn TransactionRow(transaction: TransactionHistoryItem) -> Element {
                                     }
                                 }
                             }
-                            
+
                             // 💼 平台服务费（钱包服务商收取）
                             // 注意：这是真实的后端API计算结果，不是硬编码
                             // 百分比费率从 gas.platform_fee_rules 表动态读取
@@ -522,7 +522,7 @@ fn TransactionRow(transaction: TransactionHistoryItem) -> Element {
                                     "待查询"
                                 }
                             }
-                            
+
                             // 💰 总计
                             div {
                                 class: "font-semibold mt-1 pt-1 border-t flex justify-between",
@@ -534,7 +534,7 @@ fn TransactionRow(transaction: TransactionHistoryItem) -> Element {
                                 }
                             }
                         }
-                        
+
                         // 💡 费用说明
                         div {
                             class: "mt-2 p-2 rounded text-xs",

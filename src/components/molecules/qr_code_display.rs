@@ -21,12 +21,11 @@ fn generate_qr_code(data: &str) -> String {
             svg
         }
         Err(_) => {
-            format!(
-                r#"<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+            r#"<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
                     <rect width="256" height="256" fill="white"/>
                     <text x="128" y="128" text-anchor="middle" font-size="12" fill="black">QR Code Error</text>
                 </svg>"#
-            )
+                .to_string()
         }
     }
 }
@@ -73,8 +72,6 @@ pub fn QrCodeDisplay(address: String, show_copy_button: Option<bool>) -> Element
     let address_for_copy = sanitized_address.clone();
     let handle_copy = {
         let address_clone = address_for_copy.clone();
-        let copy_success = copy_success;
-
         move |_| {
             let addr = address_clone.clone();
             let mut success = copy_success;
@@ -117,7 +114,7 @@ pub fn QrCodeDisplay(address: String, show_copy_button: Option<bool>) -> Element
                     // 地址内容
                     div {
                         class: "p-4 rounded-xl font-mono text-sm break-all border-2 transition-all duration-200 hover:border-indigo-400",
-                        style: format!("background: {}; color: {}; border-color: {}; line-height: 1.8;", 
+                        style: format!("background: {}; color: {}; border-color: {}; line-height: 1.8;",
                             "rgba(99, 102, 241, 0.05)", Colors::TEXT_PRIMARY, Colors::BORDER_PRIMARY),
                         {security::escape_for_display(&sanitized_address)}
                     }

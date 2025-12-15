@@ -9,16 +9,10 @@ use std::sync::Arc;
 
 /// 空响应类型（用于不需要返回数据的操作）
 /// 后端返回: {code: 0, message: "success", data: {}}
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmptyResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     _phantom: Option<()>,
-}
-
-impl Default for EmptyResponse {
-    fn default() -> Self {
-        Self { _phantom: None }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -104,15 +98,23 @@ impl ApiClient {
 
     fn build_request(&self, method: &str, path: &str) -> RequestBuilder {
         let url = self.absolute_url(path);
-        
+
         #[cfg(debug_assertions)]
         {
             use tracing::info;
             info!("🔍 API Request URL: {} {}", method, url);
-            info!("🔍 Path length: {}, Path bytes: {:?}", path.len(), path.as_bytes());
-            info!("🔍 URL length: {}, URL bytes: {:?}", url.len(), url.as_bytes());
+            info!(
+                "🔍 Path length: {}, Path bytes: {:?}",
+                path.len(),
+                path.as_bytes()
+            );
+            info!(
+                "🔍 URL length: {}, URL bytes: {:?}",
+                url.len(),
+                url.as_bytes()
+            );
         }
-        
+
         let mut req = match method {
             "GET" => Request::get(&url),
             "POST" => Request::post(&url),
@@ -370,14 +372,18 @@ impl ApiClient {
                     return Err(ApiError::ResponseError(message));
                 }
             }
-            
+
             // 🔍 调试：打印 data 字段内容
             #[cfg(debug_assertions)]
             {
                 use tracing::info;
-                info!("📥 API Response data field: {}", serde_json::to_string_pretty(data).unwrap_or_else(|_| "Failed to serialize".to_string()));
+                info!(
+                    "📥 API Response data field: {}",
+                    serde_json::to_string_pretty(data)
+                        .unwrap_or_else(|_| "Failed to serialize".to_string())
+                );
             }
-            
+
             // 从 data 字段反序列化
             serde_json::from_value(data.clone()).map_err(|e| {
                 #[cfg(debug_assertions)]
@@ -385,7 +391,11 @@ impl ApiClient {
                     use tracing::error;
                     error!("❌ Deserialization error: {}", e);
                     error!("   Expected type: {}", std::any::type_name::<T>());
-                    error!("   Actual data: {}", serde_json::to_string_pretty(data).unwrap_or_else(|_| "Failed to serialize".to_string()));
+                    error!(
+                        "   Actual data: {}",
+                        serde_json::to_string_pretty(data)
+                            .unwrap_or_else(|_| "Failed to serialize".to_string())
+                    );
                 }
                 ApiError::ResponseError(format!("Failed to deserialize data field: {}", e))
             })

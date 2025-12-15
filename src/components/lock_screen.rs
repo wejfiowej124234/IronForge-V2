@@ -1,6 +1,8 @@
 //! Lock Screen Component - 钱包解锁屏幕
 //! 全屏遮罩，要求用户输入密码解锁钱包
 
+#![allow(clippy::redundant_locals)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};
@@ -14,7 +16,7 @@ use dioxus::prelude::*;
 /// 当钱包锁定时显示，要求用户输入密码解锁
 #[component]
 pub fn LockScreen() -> Element {
-    let password = use_signal(|| String::new());
+    let password = use_signal(String::new);
     let error_message = use_signal(|| Option::<String>::None);
     let is_loading = use_signal(|| false);
     let remember_password = use_signal(|| false);

@@ -6,6 +6,7 @@ use bs58;
 
 /// 支持的链类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ChainType {
     Ethereum,
     Bitcoin,
@@ -157,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_detect_ethereum() {
-        let addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb";
+        let addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb6";
         assert_eq!(
             AddressDetector::detect_chain(addr).unwrap(),
             ChainType::Ethereum

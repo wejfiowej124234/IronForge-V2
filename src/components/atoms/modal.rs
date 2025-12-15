@@ -43,8 +43,7 @@ pub fn Modal(
         return rsx! { div { style: "display: none;", } };
     }
 
-    let overlay_style = format!(
-        "position: fixed; \
+    let overlay_style = "position: fixed; \
          inset: 0; \
          background: rgba(0, 0, 0, 0.6); \
          backdrop-filter: blur(4px); \
@@ -53,7 +52,7 @@ pub fn Modal(
          align-items: center; \
          justify-content: center; \
          padding: 20px;"
-    );
+        .to_string();
 
     let modal_style = format!(
         "background: rgba(36, 36, 47, 0.8); \

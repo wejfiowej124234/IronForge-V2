@@ -21,7 +21,7 @@ pub fn validate_eth_address(address: &str) -> Result<()> {
     }
 
     // Mixed case: must match checksum
-    let hash = Keccak256::digest(address_lower[2..].as_bytes());
+    let hash = Keccak256::digest(&address_lower.as_bytes()[2..]);
     let hash_hex = hex::encode(hash);
 
     for (i, char) in address[2..].chars().enumerate() {
@@ -35,13 +35,11 @@ pub fn validate_eth_address(address: &str) -> Result<()> {
                     i
                 ));
             }
-        } else {
-            if char.is_ascii_uppercase() {
-                return Err(anyhow!(
-                    "Invalid checksum: expected lowercase at index {}",
-                    i
-                ));
-            }
+        } else if char.is_ascii_uppercase() {
+            return Err(anyhow!(
+                "Invalid checksum: expected lowercase at index {}",
+                i
+            ));
         }
     }
 

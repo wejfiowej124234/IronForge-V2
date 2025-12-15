@@ -22,11 +22,11 @@ pub fn TokenSelector(
 ) -> Element {
     let app_state = use_context::<AppState>();
     let show_modal = use_signal(|| false);
-    let mut search_query = use_signal(|| String::new());
-    let tokens = use_signal(|| Vec::<TokenInfo>::new());
+    let mut search_query = use_signal(String::new);
+    let tokens = use_signal(Vec::<TokenInfo>::new);
     let loading = use_signal(|| false);
     let error = use_signal(|| Option::<String>::None);
-    let token_balances = use_signal(|| std::collections::HashMap::<String, f64>::new());
+    let token_balances = use_signal(std::collections::HashMap::<String, f64>::new);
 
     // ✅ 克隆 wallet_address 用于多处使用（因为 Option<String> 不实现 Copy）
     let has_wallet = wallet_address.is_some();
@@ -38,29 +38,31 @@ pub fn TokenSelector(
         let app_state_clone = app_state;
         let chain_clone = chain; // 读取chain值，触发追踪
         let wallet_opt_clone = wallet_address.clone();
-            let mut tokens_mut = tokens;
-            let mut loading_mut = loading;
-            let mut error_mut = error;
-            let mut balances_mut = token_balances;
-            
-            spawn(async move {
-                loading_mut.set(true);
-                error_mut.set(None);
+        let mut tokens_mut = tokens;
+        let mut loading_mut = loading;
+        let mut error_mut = error;
+        let mut balances_mut = token_balances;
 
-                let token_service = TokenService::new(app_state_clone.clone());
-                
-                // ✅ 智能策略：优先从钱包余额中获取代币
-                if let Some(ref wallet_addr) = wallet_opt_clone {
+        spawn(async move {
+            loading_mut.set(true);
+            error_mut.set(None);
+
+            let token_service = TokenService::new(app_state_clone);
+
+            // ✅ 智能策略：优先从钱包余额中获取代币
+            if let Some(ref wallet_addr) = wallet_opt_clone {
                 // 1. 获取钱包账户信息（包含原生代币余额）
                 let wallet_state = app_state_clone.wallet.read();
                 let mut tokens_with_balance = Vec::new();
                 let mut balances_map = std::collections::HashMap::new();
-                
+
                 // 2. 添加当前链的原生代币（如果有余额）
                 if let Some(wallet) = wallet_state.get_selected_wallet() {
-                    if let Some(account) = wallet.accounts.iter().find(|acc| {
-                        acc.address.to_lowercase() == wallet_addr.to_lowercase()
-                    }) {
+                    if let Some(account) = wallet
+                        .accounts
+                        .iter()
+                        .find(|acc| acc.address.to_lowercase() == wallet_addr.to_lowercase())
+                    {
                         // 原生代币始终显示
                         let native_token = TokenInfo {
                             address: "0x0000000000000000000000000000000000000000".to_string(),
@@ -71,7 +73,7 @@ pub fn TokenSelector(
                             logo_url: None,
                             is_native: true,
                         };
-                        
+
                         // 解析余额（从字符串转换为f64）
                         let balance = account.balance.parse::<f64>().unwrap_or(0.0);
                         if balance > 0.0 {
@@ -80,7 +82,7 @@ pub fn TokenSelector(
                         tokens_with_balance.push(native_token);
                     }
                 }
-                
+
                 // 3. 获取所有ERC-20代币并过滤有余额的
                 match token_service.get_token_list(chain_clone).await {
                     Ok(all_tokens) => {
@@ -93,7 +95,10 @@ pub fn TokenSelector(
                                 {
                                     // ✅ 只添加有余额的代币（大于0.0001）
                                     if balance_info.balance_formatted > 0.0001 {
-                                        balances_map.insert(token.address.clone(), balance_info.balance_formatted);
+                                        balances_map.insert(
+                                            token.address.clone(),
+                                            balance_info.balance_formatted,
+                                        );
                                         tokens_with_balance.push(token);
                                     }
                                 }
@@ -104,7 +109,7 @@ pub fn TokenSelector(
                         error_mut.set(Some(format!("加载代币列表失败: {}", e)));
                     }
                 }
-                
+
                 tokens_mut.set(tokens_with_balance);
                 balances_mut.set(balances_map);
             } else {
@@ -114,19 +119,22 @@ pub fn TokenSelector(
                     use tracing::info;
                     info!("TokenSelector - Loading all tokens (no wallet address provided)");
                 }
-                
+
                 match token_service.get_token_list(chain_clone).await {
                     Ok(token_list) => {
                         #[cfg(debug_assertions)]
                         {
                             use tracing::info;
-                            info!("TokenSelector - Loaded {} tokens for selection", token_list.len());
+                            info!(
+                                "TokenSelector - Loaded {} tokens for selection",
+                                token_list.len()
+                            );
                         }
                         tokens_mut.set(token_list);
                     }
                     Err(e) => {
                         error_mut.set(Some(format!("加载代币列表失败: {}", e)));
-                        
+
                         #[cfg(debug_assertions)]
                         {
                             use tracing::error;
@@ -136,9 +144,9 @@ pub fn TokenSelector(
                 }
             }
 
-                loading_mut.set(false);
-            });
+            loading_mut.set(false);
         });
+    });
 
     // ✅ 余额加载已合并到上面的智能代币加载中
 
@@ -222,12 +230,12 @@ pub fn TokenSelector(
                     div {
                         class: "flex flex-col",
                         style: "height: 600px; max-height: 80vh;",
-                        
+
                         // 🔍 搜索框 - 根据场景调整文案
                         div {
                             class: "sticky top-0 z-10 pb-4 mb-2",
                             style: format!("background: {};", Colors::BG_PRIMARY),
-                            
+
                             Input {
                                 input_type: InputType::Text,
                                 placeholder: Some(if has_wallet {
@@ -243,7 +251,7 @@ pub fn TokenSelector(
                                     }))
                                 },
                             }
-                            
+
                             // 搜索结果统计
                             if !search_query.read().is_empty() {
                                 div {
@@ -269,7 +277,7 @@ pub fn TokenSelector(
                             div {
                                 class: "pb-4 mb-4 border-b",
                                 style: format!("border-color: {};", Colors::BORDER_PRIMARY),
-                                
+
                                 div {
                                     class: "flex items-center justify-between mb-3",
                                     div {
@@ -284,7 +292,7 @@ pub fn TokenSelector(
                                         "共 {tokens.read().len()} 个可用"
                                     }
                                 }
-                                
+
                                 div {
                                     class: "flex flex-wrap gap-2",
                                     // 热门代币快捷按钮
@@ -345,13 +353,13 @@ pub fn TokenSelector(
                             div {
                                 class: "flex-1 overflow-y-auto custom-scrollbar",
                                 style: "max-height: 360px; padding-right: 4px;",
-                                
+
                                 // 无结果提示 - 根据场景调整文案
                                 if filtered_tokens.read().is_empty() {
                                     div {
                                         class: "flex flex-col items-center justify-center py-16",
-                                        div { 
-                                            class: "text-6xl mb-4 opacity-50", 
+                                        div {
+                                            class: "text-6xl mb-4 opacity-50",
                                             if has_wallet { "💰" } else { "🔍" }
                                         }
                                         p {
@@ -380,7 +388,7 @@ pub fn TokenSelector(
                                         }
                                     }
                                 }
-                                
+
                                 // 代币列表项
                                 for token in filtered_tokens.read().iter() {
                                     div {
@@ -407,11 +415,11 @@ pub fn TokenSelector(
                                                 show_modal_mut.set(false);
                                             }
                                         },
-                                        
+
                                         // 左侧：图标 + 信息
                                         div {
                                             class: "flex items-center gap-3 flex-1",
-                                            
+
                                             // 代币图标
                                             div {
                                                 class: "relative",
@@ -441,7 +449,7 @@ pub fn TokenSelector(
                                                     }
                                                 }
                                             }
-                                            
+
                                             // 代币信息
                                             div {
                                                 class: "flex-1",
@@ -467,7 +475,7 @@ pub fn TokenSelector(
                                                 }
                                             }
                                         }
-                                        
+
                                         // 右侧：余额信息
                                         div {
                                             class: "text-right",
@@ -496,19 +504,19 @@ pub fn TokenSelector(
                                 }
                             }
                         }
-                        
+
                         // 📌 底部提示 - 根据场景显示不同内容
                         if !loading() && error.read().is_none() && search_query.read().is_empty() {
                             div {
                                 class: "pt-4 mt-2 border-t",
-                                style: format!("background: {}; border-color: {};", 
+                                style: format!("background: {}; border-color: {};",
                                     Colors::BG_PRIMARY, Colors::BORDER_PRIMARY),
-                                
+
                                 if has_wallet {
                                     // 有钱包场景：显示余额提示
                                     div {
                                         class: "flex items-center justify-center gap-2 p-3 rounded-xl",
-                                        style: format!("background: {}; border: 2px solid {};", 
+                                        style: format!("background: {}; border: 2px solid {};",
                                             "rgba(99, 102, 241, 0.05)",
                                             "rgba(99, 102, 241, 0.2)"
                                         ),
@@ -523,7 +531,7 @@ pub fn TokenSelector(
                                     // 无钱包场景：显示导入按钮
                                     button {
                                         class: "w-full flex items-center justify-center gap-2 p-3 rounded-xl transition-all hover:scale-[1.02] hover:shadow-lg active:scale-95",
-                                        style: format!("background: {}; color: white; border: 2px solid {};", 
+                                        style: format!("background: {}; color: white; border: 2px solid {};",
                                             Colors::TECH_PRIMARY,
                                             Colors::TECH_PRIMARY
                                         ),
@@ -533,7 +541,7 @@ pub fn TokenSelector(
                                             "导入自定义代币"
                                         }
                                     }
-                                    
+
                                     p {
                                         class: "text-xs text-center mt-2 opacity-60",
                                         style: format!("color: {};", Colors::TEXT_TERTIARY),

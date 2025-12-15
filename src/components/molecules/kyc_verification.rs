@@ -198,11 +198,11 @@ pub fn KycVerification(props: KycVerificationProps) -> Element {
                                     Colors::BORDER_PRIMARY
                                 ),
                                 onclick: {
-                                    let provider_clone = provider.clone();
-                                    let handler_opt = props.on_start_verification.clone();
+                                    let provider_clone = provider;
+                                    let handler_opt = props.on_start_verification;
                                     move |_| {
                                         if let Some(handler) = handler_opt.as_ref() {
-                                            handler.call(provider_clone.clone());
+                                            handler.call(provider_clone);
                                         }
                                     }
                                 },
@@ -262,7 +262,7 @@ pub fn KycVerification(props: KycVerificationProps) -> Element {
             } else if matches!(status, KycVerificationStatus::Rejected | KycVerificationStatus::Expired) {
                 if let Some(ref on_retry) = props.on_retry {
                     {
-                        let handler = on_retry.clone();
+                        let handler = *on_retry;
                         rsx! {
                             div {
                                 class: "space-y-3",

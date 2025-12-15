@@ -1,6 +1,13 @@
 //! Buy Page - 法币购买页面
 //! 企业级法币充值实现，支持多支付方式，智能服务商选择
 
+#![allow(
+    clippy::upper_case_acronyms,
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::clone_on_copy
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};
@@ -200,9 +207,9 @@ pub fn Buy() -> Element {
 
     // 获取报价
     let get_quote = {
-        let app_state = app_state.clone();
+        let app_state = app_state;
         move |_| {
-            let app_state = app_state.clone();
+            let app_state = app_state;
             let amount = amount.read().clone();
             let currency = selected_currency.read().value();
             let token = selected_token.read().value();
@@ -215,8 +222,11 @@ pub fn Buy() -> Element {
                 is_loading.set(true);
                 error_message.set(None);
 
-                let service = FiatOnrampService::new(Arc::new(app_state));
-                match service.get_quote(&amount, currency, token, payment_method).await {
+                let service = FiatOnrampService::new(app_state);
+                match service
+                    .get_quote(&amount, currency, token, payment_method)
+                    .await
+                {
                     Ok(q) => {
                         quote.set(Some(q));
                         is_loading.set(false);
@@ -232,9 +242,9 @@ pub fn Buy() -> Element {
 
     // 创建订单
     let create_order = {
-        let app_state = app_state.clone();
+        let app_state = app_state;
         move |_| {
-            let app_state = app_state.clone();
+            let app_state = app_state;
             let amount = amount.read().clone();
             let currency = selected_currency.read().value();
             let token = selected_token.read().value();
@@ -270,7 +280,9 @@ pub fn Buy() -> Element {
                     None => {
                         error_message.set(Some("请先点击【获取报价】按钮获取实时报价".to_string()));
                         is_loading.set(false);
-                        tracing::warn!("[Buy] Attempted to create order without getting quote first");
+                        tracing::warn!(
+                            "[Buy] Attempted to create order without getting quote first"
+                        );
                         return;
                     }
                 };
@@ -284,7 +296,7 @@ pub fn Buy() -> Element {
                 tracing::info!("[Buy] Creating order: amount={}, currency={}, token={}, payment_method={}, quote_id={}", 
                     amount, currency, token, payment_method, quote_id);
 
-                let service = FiatOnrampService::new(Arc::new(app_state));
+                let service = FiatOnrampService::new(app_state);
                 match service
                     .create_order(
                         &amount,
@@ -297,7 +309,11 @@ pub fn Buy() -> Element {
                     .await
                 {
                     Ok(order) => {
-                        tracing::info!("[Buy] Order created successfully: order_id={}, payment_url={:?}", order.order_id, order.payment_url);
+                        tracing::info!(
+                            "[Buy] Order created successfully: order_id={}, payment_url={:?}",
+                            order.order_id,
+                            order.payment_url
+                        );
                         order_created.set(true);
                         payment_url.set(order.payment_url.clone());
                         is_loading.set(false);
@@ -325,7 +341,7 @@ pub fn Buy() -> Element {
                                 div { class: "text-6xl mb-4", "✅" }
                                 h1 { class: "text-2xl font-bold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "订单创建成功！" }
                                 p { class: "text-sm mb-6", style: format!("color: {};", Colors::TEXT_SECONDARY), "您的购买订单已创建，请点击下方按钮前往支付。" }
-                                
+
                                 if let Some(url) = (*payment_url.read()).clone() {
                                     div { class: "space-y-4",
                                         // 显示支付URL（调试用）
@@ -361,7 +377,7 @@ pub fn Buy() -> Element {
                                     Button {
                                         variant: ButtonVariant::Primary,
                                         size: ButtonSize::Medium,
-                                        onclick: move |_| { 
+                                        onclick: move |_| {
                                             // 跳转到订单页面
                                             navigator.push(Route::Orders {});
                                         },
@@ -394,8 +410,8 @@ pub fn Buy() -> Element {
                         "← 返回仪表盘"
                     }
                     h1 { class: "text-3xl font-bold", style: format!("color: {};", Colors::TEXT_PRIMARY), "💳 购买稳定币" }
-                    p { class: "text-sm mt-2", style: format!("color: {};", Colors::TEXT_SECONDARY), 
-                        "使用法币购买 USDT 或 USDC，支持多种支付方式。系统将自动选择最优惠的支付服务商。" 
+                    p { class: "text-sm mt-2", style: format!("color: {};", Colors::TEXT_SECONDARY),
+                        "使用法币购买 USDT 或 USDC，支持多种支付方式。系统将自动选择最优惠的支付服务商。"
                     }
                 }
 
@@ -562,8 +578,8 @@ pub fn Buy() -> Element {
                 // 企业级提示
                 div { class: "mt-6 p-4 rounded-lg", style: format!("background: {}; border: 1px solid {};", Colors::BG_SECONDARY, Colors::BORDER_PRIMARY),
                     h3 { class: "font-semibold mb-2 text-sm", style: format!("color: {};", Colors::TEXT_PRIMARY), "💡 智能服务商选择" }
-                    p { class: "text-xs", style: format!("color: {};", Colors::TEXT_SECONDARY), 
-                        "系统已接入 MoonPay、Simplex、Transak、Ramp、Banxa 5家顶级支付服务商，自动为您选择手续费最低的服务商，节省交易成本。" 
+                    p { class: "text-xs", style: format!("color: {};", Colors::TEXT_SECONDARY),
+                        "系统已接入 MoonPay、Simplex、Transak、Ramp、Banxa 5家顶级支付服务商，自动为您选择手续费最低的服务商，节省交易成本。"
                     }
                 }
             }

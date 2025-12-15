@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Swap Validation Tests - 交换验证逻辑测试
 //! 企业级单元测试，使用wasm-bindgen-test
 

@@ -89,7 +89,7 @@ pub struct AuditLogService {
 }
 
 impl AuditLogService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self {
             api_client: Arc::new(app_state.get_api_client()),
         }
@@ -106,7 +106,7 @@ impl AuditLogService {
         let url = "/api/v1/audit/logs";
 
         self.api_client
-            .post::<AuditLogResponse, AuditLogQuery>(&url, &query)
+            .post::<AuditLogResponse, AuditLogQuery>(url, &query)
             .await
             .map_err(|e| {
                 let error_msg = e.to_string().to_lowercase();
@@ -136,7 +136,7 @@ impl AuditLogService {
         let url = "/api/v1/audit/compliance/report";
 
         self.api_client
-            .post::<ComplianceReportResponse, ComplianceReportRequest>(&url, &request)
+            .post::<ComplianceReportResponse, ComplianceReportRequest>(url, &request)
             .await
             .map_err(|e| {
                 let error_msg = e.to_string().to_lowercase();

@@ -8,7 +8,7 @@ use std::sync::Arc;
 /// 用户KYC状态响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserKycStatusResponse {
-    pub kyc_status: String,  // "unverified", "basic", "standard", "premium"
+    pub kyc_status: String, // "unverified", "basic", "standard", "premium"
     pub daily_limit: f64,
     pub monthly_limit: f64,
     pub daily_used: f64,

@@ -23,7 +23,7 @@ pub fn ExchangeRateLockCountdown(
         let expired_sig = expired;
         let lock_start = lock_start_time;
         let lock_dur = lock_duration;
-        let expired_handler = on_expired.clone();
+        let expired_handler = on_expired;
 
         move || {
             let _interval_id = gloo_timers::callback::Interval::new(1000, {
@@ -31,7 +31,7 @@ pub fn ExchangeRateLockCountdown(
                 let mut expired_sig = expired_sig;
                 let lock_start = lock_start;
                 let lock_dur = lock_dur;
-                let expired_handler = expired_handler.clone();
+                let expired_handler = expired_handler;
 
                 move || {
                     let now = js_sys::Date::now() as u64 / 1000;

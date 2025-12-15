@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Error Handling Tests - 错误处理逻辑测试
 //! 企业级单元测试，使用wasm-bindgen-test
 

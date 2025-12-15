@@ -109,9 +109,9 @@ pub fn Input(
     let label_clone = label.clone();
     let error_clone = error.clone();
     let help_text_clone = help_text.clone();
-    let onchange_clone = onchange.clone();
-    let onfocus_clone = onfocus.clone();
-    let onblur_clone = onblur.clone();
+    let onchange_clone = onchange;
+    let onfocus_clone = onfocus;
+    let onblur_clone = onblur;
     let class_clone = class.clone();
 
     rsx! {

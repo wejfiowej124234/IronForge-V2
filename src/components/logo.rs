@@ -38,13 +38,13 @@ pub enum LogoSize {
 }
 
 impl LogoSize {
-    pub fn to_pixels(&self) -> u32 {
+    pub fn to_pixels(self) -> u32 {
         match self {
             LogoSize::Small => 32,
             LogoSize::Medium => 48,
             LogoSize::Large => 64,
             LogoSize::XLarge => 128,
-            LogoSize::Custom(size) => *size,
+            LogoSize::Custom(size) => size,
         }
     }
 }
@@ -237,10 +237,10 @@ pub fn LogoWithText(
     #[props(default = LogoVariant::Standard)]
     variant: LogoVariant,
     /// 文字大小
-    #[props(default = "text-xl")]
+    #[props(default)]
     text_size: Option<String>,
     /// 文字颜色
-    #[props(default = "text-white")]
+    #[props(default)]
     text_color: Option<String>,
 ) -> Element {
     let text_size = text_size.unwrap_or_else(|| "text-xl".to_string());

@@ -241,71 +241,91 @@ impl WalletController {
             drop(user_state);
 
             let wallet_service = WalletService::new(app_state);
-            
+
             // 使用批量创建API（✅ 直接使用account中已保存的公钥）
             use crate::services::wallet::{BatchCreateWalletsRequest, WalletRegistrationInfo};
-            
-            let wallets: Vec<WalletRegistrationInfo> = wallet.accounts.iter().map(|account| {
-                let chain_str = match account.chain.as_str() {
-                    "ethereum" => "ETH",
-                    "bitcoin" => "BTC",
-                    "solana" => "SOL",
-                    "ton" => "TON",
-                    _ => account.chain.as_str(),
-                };
-                
-                WalletRegistrationInfo {
-                    chain: chain_str.to_uppercase(),
-                    address: account.address.clone(),
-                    public_key: account.public_key.clone(), // ✅ 直接使用已保存的公钥
-                    derivation_path: account.derivation_path.clone(),
-                    name: Some(name.to_string()), // ✅ 使用相同的钱包名称（不加链后缀），便于前端合并
-                }
-            }).collect();
-            
+
+            let wallets: Vec<WalletRegistrationInfo> = wallet
+                .accounts
+                .iter()
+                .map(|account| {
+                    let chain_str = match account.chain.as_str() {
+                        "ethereum" => "ETH",
+                        "bitcoin" => "BTC",
+                        "solana" => "SOL",
+                        "ton" => "TON",
+                        _ => account.chain.as_str(),
+                    };
+
+                    WalletRegistrationInfo {
+                        chain: chain_str.to_uppercase(),
+                        address: account.address.clone(),
+                        public_key: account.public_key.clone(), // ✅ 直接使用已保存的公钥
+                        derivation_path: account.derivation_path.clone(),
+                        name: Some(name.to_string()), // ✅ 使用相同的钱包名称（不加链后缀），便于前端合并
+                    }
+                })
+                .collect();
+
             let batch_request = BatchCreateWalletsRequest { wallets };
-            
+
             match wallet_service.batch_create_wallets(batch_request).await {
                 Ok(response) => {
                     let saved_count = response.wallets.len();
                     let failed_count = response.failed.len();
-                    
-                    tracing::info!("✅ Batch wallet creation: {} succeeded, {} failed", saved_count, failed_count);
-                    
+
+                    tracing::info!(
+                        "✅ Batch wallet creation: {} succeeded, {} failed",
+                        saved_count,
+                        failed_count
+                    );
+
                     for wallet_result in &response.wallets {
-                        tracing::info!("  ✅ Wallet saved: {} - {}", wallet_result.chain, wallet_result.address);
+                        tracing::info!(
+                            "  ✅ Wallet saved: {} - {}",
+                            wallet_result.chain,
+                            wallet_result.address
+                        );
                     }
-                    
+
                     if !response.failed.is_empty() {
                         // 检查是否是外键约束错误（数据库重建导致）
-                        let has_fk_error = response.failed.iter()
-                            .any(|e| e.error.contains("foreign key constraint") 
-                                  || e.error.contains("fk_wallets_tenant")
-                                  || e.error.contains("fk_wallets_user"));
-                        
+                        let has_fk_error = response.failed.iter().any(|e| {
+                            e.error.contains("foreign key constraint")
+                                || e.error.contains("fk_wallets_tenant")
+                                || e.error.contains("fk_wallets_user")
+                        });
+
                         if has_fk_error {
                             tracing::error!("🚨 检测到数据库不一致错误（后端数据库可能已重建）");
                             tracing::error!("📝 请执行以下操作：");
                             tracing::error!("   1. 点击右上角【Logout】登出");
-                            tracing::error!("   2. 清除浏览器缓存（F12 → Application → Local Storage → 清除）");
+                            tracing::error!(
+                                "   2. 清除浏览器缓存（F12 → Application → Local Storage → 清除）"
+                            );
                             tracing::error!("   3. 重新注册账号");
-                            
+
                             // 自动清理本地存储（可选，取消注释启用）
                             // use gloo_storage::{LocalStorage, Storage};
                             // LocalStorage::delete("user_state");
                             // tracing::warn!("⚠️ 已自动清理本地登录状态，请刷新页面后重新注册");
-                            
+
                             return Err(anyhow::anyhow!(
                                 "数据库不一致：后端数据库可能已重建。请登出后重新注册账号。\n\
                                  原因：您的登录凭证对应的用户记录在数据库中不存在。\n\
                                  解决方案：1) 点击Logout 2) 清除浏览器缓存 3) 重新注册"
                             ));
                         }
-                        
+
                         for err in &response.failed {
-                            tracing::warn!("  ⚠️ Failed to save: {} - {} ({})", err.chain, err.address, err.error);
+                            tracing::warn!(
+                                "  ⚠️ Failed to save: {} - {} ({})",
+                                err.chain,
+                                err.address,
+                                err.error
+                            );
                         }
-                        
+
                         // ✅ 修复：即使部分失败，也不阻止用户继续（钱包已在本地创建）
                         // 用户可以稍后手动同步或重新创建
                         tracing::warn!(
@@ -317,20 +337,20 @@ impl WalletController {
                 }
                 Err(e) => {
                     tracing::error!("❌ 后端保存失败: {}", e);
-                    
+
                     // 检查是否是401认证错误
                     let error_msg = e.to_string().to_lowercase();
                     if error_msg.contains("unauthorized") || error_msg.contains("401") {
                         tracing::warn!("⚠️ 认证已过期，请重新登录");
-                        
+
                         // 清理认证状态
                         app_state.handle_unauthorized();
-                        
+
                         // 跳转到登录页
                         use crate::router::Route;
                         let nav = use_navigator();
                         nav.push(Route::Login {});
-                        
+
                         return Err(anyhow!("认证已过期，请重新登录后再创建钱包"));
                     } else {
                         // 其他错误：网络错误等，不阻止用户（钱包已在本地创建）
@@ -681,7 +701,7 @@ impl WalletController {
             let pub_bytes = verifying_key.to_encoded_point(false).as_bytes().to_vec();
             hex::encode(&pub_bytes) // ✅ 完整的65字节未压缩公钥（包含0x04前缀）
         };
-        
+
         let mut wallet = Wallet::new(wallet_id.clone(), name.to_string());
         wallet.accounts.push(Account {
             address: eth_address,

@@ -10,15 +10,15 @@ pub enum AccountType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Account {
     pub address: String,
-    pub chain: String,                   // e.g., "ethereum", "bitcoin"
+    pub chain: String, // e.g., "ethereum", "bitcoin"
     /// 公钥（✅ 非托管钱包可以存储公开信息）
-    /// 
+    ///
     /// # 为什么可以存储公钥？
     /// - 公钥是公开信息，不涉及资产控制
     /// - 后端需要公钥来查询余额、交易历史
     /// - 公钥用于验证地址的合法性
     /// - 与用户绑定，方便多设备同步
-    /// 
+    ///
     /// # 安全说明
     /// - ❌ 私钥控制资产，永不存储
     /// - ✅ 公钥仅用于查询，可以安全存储

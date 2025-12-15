@@ -56,19 +56,22 @@ impl TransactionService {
         // ✅ v1标准路径
         api.post("/api/v1/transactions/broadcast", &payload)
             .await
-            .map_err(|e| AppError::Api(e))
+            .map_err(AppError::Api)
     }
 
     pub async fn status(&self, tx_hash: &str) -> Result<TransactionStatus, AppError> {
         let path = format!("/api/v1/transactions/{}/status", tx_hash);
         let api = self.api();
         // ✅ v1标准路径
-        api.get(&path).await.map_err(|e| AppError::Api(e))
+        api.get(&path).await.map_err(AppError::Api)
     }
 
     /// 获取账户的nonce（用于Ethereum交易）
     pub async fn get_nonce(&self, address: &str, chain_id: u64) -> Result<u64, AppError> {
-        let path = format!("/api/v1/transactions/nonce?address={}&chain_id={}", address, chain_id);
+        let path = format!(
+            "/api/v1/transactions/nonce?address={}&chain_id={}",
+            address, chain_id
+        );
         let api = self.api();
 
         #[derive(Deserialize)]
@@ -111,7 +114,7 @@ impl TransactionService {
         let path = format!("/api/v1/transactions/history?page={}", page);
         let api = self.api();
         // deserialize 方法已自动提取 data 字段
-        api.get(&path).await.map_err(|e| AppError::Api(e))
+        api.get(&path).await.map_err(AppError::Api)
     }
 
     /// 按地址查询交易历史（✅ V1 API标准：使用公开路由）
@@ -124,7 +127,7 @@ impl TransactionService {
         let path = format!("/api/v1/wallets/{}/transactions?chain={}", address, chain);
         let api = self.api();
         // deserialize 方法已自动提取 data 字段
-        api.get(&path).await.map_err(|e| AppError::Api(e))
+        api.get(&path).await.map_err(AppError::Api)
     }
 
     /// Get Solana recent blockhash

@@ -23,7 +23,7 @@ pub fn Bridge() -> Element {
     let mut from_chain = use_signal(|| "ethereum".to_string());
     let mut to_chain = use_signal(|| "polygon".to_string());
     let token = use_signal(|| "ETH".to_string());
-    let amount = use_signal(|| String::new());
+    let amount = use_signal(String::new);
 
     // UI状态
     let error_message = use_signal(|| Option::<String>::None);
@@ -68,7 +68,7 @@ pub fn Bridge() -> Element {
             loading.set(true);
             err.set(None);
 
-            let bridge_service = BridgeService::new(Arc::new(app_state_clone));
+            let bridge_service = BridgeService::new(app_state_clone);
             match bridge_service
                 .bridge_assets(&wallet_id, &from, &to, &token_val, &amount_val)
                 .await
@@ -408,7 +408,7 @@ pub fn Bridge() -> Element {
                             let mut err = error_message;
 
                             spawn(async move {
-                                let bridge_service = BridgeService::new(Arc::new(app_state_clone));
+                                let bridge_service = BridgeService::new(app_state_clone);
                                 match bridge_service.get_history(Some(1), Some(20)).await {
                                     Ok(response) => {
                                         history_sig.set(response.bridges);

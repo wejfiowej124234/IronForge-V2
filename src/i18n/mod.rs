@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 /// 获取翻译文本的 Hook
 pub fn use_translation() -> impl Fn(&str) -> String {
     let app_state = use_context::<AppState>();
-    
+
     move |key: &str| -> String {
         let lang = app_state.language.read();
         translations::get_text(key, &lang)

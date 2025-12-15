@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn test_validate_address() {
         assert!(validate_address(
-            "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb6",
             Some("ethereum")
         ));
         assert!(!validate_address("<script>", Some("ethereum")));

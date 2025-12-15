@@ -146,7 +146,7 @@ pub fn TransactionNotificationContainer(
             for notification in notifications_val.iter() {
                 TransactionNotificationItem {
                     notification: notification.clone(),
-                    on_close: on_close.clone(),
+                    on_close: on_close,
                 }
             }
         }

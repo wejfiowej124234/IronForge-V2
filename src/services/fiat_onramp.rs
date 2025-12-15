@@ -9,7 +9,7 @@ use std::sync::Arc;
 /// URL编码工具函数（使用JavaScript的encodeURIComponent）
 fn encode_uri_component(s: &str) -> String {
     // 使用JavaScript的encodeURIComponent进行URL编码
-    let encoded = js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
+    js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
         .ok()
         .and_then(|f| {
             js_sys::Function::from(f)
@@ -17,8 +17,7 @@ fn encode_uri_component(s: &str) -> String {
                 .ok()
         })
         .and_then(|v| v.as_string())
-        .unwrap_or_else(|| s.to_string());
-    encoded
+        .unwrap_or_else(|| s.to_string())
 }
 
 /// 法币报价请求
@@ -94,21 +93,24 @@ pub struct FiatOnrampService {
 }
 
 impl FiatOnrampService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         let api_client = app_state.get_api_client();
-        
+
         // 调试：检查API客户端是否有token（强制输出到console）
         use tracing::{info, warn};
         use wasm_bindgen::prelude::*;
-        
+
         #[wasm_bindgen]
         extern "C" {
             #[wasm_bindgen(js_namespace = console)]
             fn log(s: &str);
         }
-        
+
         if let Some(token) = api_client.get_token() {
-            let msg = format!("✅ FiatOnrampService: API client has token (length: {})", token.len());
+            let msg = format!(
+                "✅ FiatOnrampService: API client has token (length: {})",
+                token.len()
+            );
             info!("{}", msg);
             log(&msg);
         } else {
@@ -116,7 +118,7 @@ impl FiatOnrampService {
             warn!("{}", msg);
             log(msg);
         }
-        
+
         Self {
             api_client: Arc::new(api_client),
         }
@@ -201,9 +203,13 @@ impl FiatOnrampService {
                     "服务暂时不可用，请稍后重试".to_string()
                 } else if error_msg.contains("limit") || error_msg.contains("限额") {
                     "交易金额超出限额，请调整金额".to_string()
-                } else if error_msg.contains("country") || error_msg.contains("region") || error_msg.contains("地区") {
+                } else if error_msg.contains("country")
+                    || error_msg.contains("region")
+                    || error_msg.contains("地区")
+                {
                     "您所在地区暂不支持此服务".to_string()
-                } else if error_msg.contains("没有可用") || error_msg.contains("暂时不可用") {
+                } else if error_msg.contains("没有可用") || error_msg.contains("暂时不可用")
+                {
                     "法币充值服务暂时不可用，请稍后重试或联系客服".to_string()
                 } else {
                     format!("获取报价失败：{}", e)
@@ -264,7 +270,7 @@ impl FiatOnrampService {
 
         // 发送API请求
         self.api_client
-            .post::<FiatOrderResponse, CreateFiatOrderRequest>(&url, &request)
+            .post::<FiatOrderResponse, CreateFiatOrderRequest>(url, &request)
             .await
             .map_err(|e| {
                 // 企业级错误处理
@@ -297,7 +303,10 @@ impl FiatOnrampService {
             return Err("订单ID不能为空".to_string());
         }
 
-        let url = format!("/api/v1/fiat/onramp/orders/{}", encode_uri_component(order_id));
+        let url = format!(
+            "/api/v1/fiat/onramp/orders/{}",
+            encode_uri_component(order_id)
+        );
 
         self.api_client
             .get::<FiatOrderStatus>(&url)
@@ -326,7 +335,10 @@ impl FiatOnrampService {
             return Err("订单ID不能为空".to_string());
         }
 
-        let url = format!("/api/v1/fiat/onramp/orders/{}/cancel", encode_uri_component(order_id));
+        let url = format!(
+            "/api/v1/fiat/onramp/orders/{}/cancel",
+            encode_uri_component(order_id)
+        );
 
         // deserialize 方法已自动提取 data 字段
         // 后端返回: {code: 0, message: "success", data: {}}
@@ -361,7 +373,10 @@ impl FiatOnrampService {
             return Err("订单ID不能为空".to_string());
         }
 
-        let url = format!("/api/v1/fiat/onramp/orders/{}/retry", encode_uri_component(order_id));
+        let url = format!(
+            "/api/v1/fiat/onramp/orders/{}/retry",
+            encode_uri_component(order_id)
+        );
 
         self.api_client
             .post::<FiatOrderResponse, serde_json::Value>(&url, &serde_json::json!({}))

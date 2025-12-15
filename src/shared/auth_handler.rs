@@ -1,5 +1,5 @@
 //! Authentication Error Handler - 统一的认证错误处理
-//! 
+//!
 //! 当API返回401 Unauthorized时，自动清理状态并跳转到登录页
 
 use crate::shared::error::ApiError;
@@ -14,19 +14,19 @@ pub fn is_unauthorized_error(error: &ApiError) -> bool {
 }
 
 /// 处理401错误：记录日志但不自动登出
-/// 
+///
 /// # 设计理念
 /// 401 错误有多种原因：
 /// 1. Token 真的过期（1小时后）
 /// 2. 后端 JWT 密钥配置变化
 /// 3. Token 格式错误
 /// 4. 后端重启导致 session 失效
-/// 
+///
 /// **不应该盲目自动登出**，而是应该：
 /// - 让用户看到明确的错误提示
 /// - 由用户决定是否重新登录
 /// - 避免「刚登录就被踢出」的糟糕体验
-/// 
+///
 /// # Example
 /// ```rust
 /// match api_client.get::<T>(&url).await {
@@ -61,19 +61,15 @@ pub fn handle_unauthorized_and_redirect(app_state: AppState) {
 }
 
 /// 将ApiError转换为用户友好的错误消息
-/// 
+///
 /// 如果是401错误，自动处理并返回友好提示
-pub fn handle_api_error_with_auth(
-    error: ApiError,
-    app_state: AppState,
-    context: &str,
-) -> String {
+pub fn handle_api_error_with_auth(error: ApiError, app_state: AppState, context: &str) -> String {
     if is_unauthorized_error(&error) {
         handle_unauthorized_and_redirect(app_state);
         "认证已过期，请重新登录".to_string()
     } else {
         let error_msg = error.to_string().to_lowercase();
-        
+
         // 通用错误转换
         if error_msg.contains("network") || error_msg.contains("connection") {
             format!("{}：网络错误，请稍后重试", context)

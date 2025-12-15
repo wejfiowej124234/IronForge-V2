@@ -291,7 +291,7 @@ pub fn OrderList(props: OrderListProps) -> Element {
                         if let Some(ref on_view_details) = props.on_view_details {
                             {
                                 let order_id = order.order_id.clone();
-                                let handler = on_view_details.clone();
+                                let handler = *on_view_details;
                                 rsx! {
                                     button {
                                         class: "px-3 py-1.5 rounded text-xs font-medium transition-all",
@@ -314,7 +314,7 @@ pub fn OrderList(props: OrderListProps) -> Element {
                             if let Some(ref on_cancel) = props.on_cancel {
                                 {
                                     let order_id = order.order_id.clone();
-                                    let handler = on_cancel.clone();
+                                    let handler = *on_cancel;
                                     rsx! {
                                         button {
                                             class: "px-3 py-1.5 rounded text-xs font-medium transition-all",
@@ -338,7 +338,7 @@ pub fn OrderList(props: OrderListProps) -> Element {
                             if let Some(ref on_retry) = props.on_retry {
                                 {
                                     let order_id = order.order_id.clone();
-                                    let handler = on_retry.clone();
+                                    let handler = *on_retry;
                                     rsx! {
                                         button {
                                             class: "px-3 py-1.5 rounded text-xs font-medium transition-all",

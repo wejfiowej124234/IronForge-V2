@@ -24,6 +24,7 @@ impl LimitOrderType {
 
 /// 限价单表单组件
 #[component]
+#[allow(clippy::type_complexity)]
 pub fn LimitOrderForm(
     /// 买入/卖出类型
     order_type: Signal<LimitOrderType>,
@@ -42,6 +43,7 @@ pub fn LimitOrderForm(
     /// 加载状态
     loading: Signal<bool>,
     /// 提交回调
+    #[allow(clippy::type_complexity)]
     on_submit: Option<EventHandler<(LimitOrderType, String, String, String, u32)>>,
 ) -> Element {
     let order_type_val = *order_type.read();

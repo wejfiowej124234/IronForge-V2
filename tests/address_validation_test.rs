@@ -1,3 +1,5 @@
+#![cfg(target_arch = "wasm32")]
+
 //! Address Validation Tests - 地址验证逻辑测试
 //! 企业级单元测试，使用wasm-bindgen-test
 
@@ -9,7 +11,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 #[wasm_bindgen_test]
 fn test_ethereum_address_validation() {
     // 有效地址
-    assert!(validate_ethereum_address("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb").is_ok());
+    assert!(validate_ethereum_address("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb6").is_ok());
     assert!(validate_ethereum_address("0x0000000000000000000000000000000000000000").is_ok());
 
     // 无效地址

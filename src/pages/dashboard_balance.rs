@@ -1,6 +1,8 @@
 //! Dashboard Balance Overview Component
 //! 余额概览组件 - 显示选中钱包的多链余额聚合
 
+#![allow(clippy::redundant_closure)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::molecules::ErrorMessage;
@@ -299,7 +301,7 @@ pub fn BalanceOverview(wallet: Wallet) -> Element {
                                 div {
                                     class: "text-center",
                                     div { class: "text-2xl mb-1", "🔄" }
-                                    div { 
+                                    div {
                                         class: "text-xs font-semibold",
                                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                                         "交换"
@@ -315,7 +317,7 @@ pub fn BalanceOverview(wallet: Wallet) -> Element {
                                 div {
                                     class: "text-center",
                                     div { class: "text-2xl mb-1", "💳" }
-                                    div { 
+                                    div {
                                         class: "text-xs font-semibold",
                                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                                         "提现"
@@ -332,7 +334,7 @@ pub fn BalanceOverview(wallet: Wallet) -> Element {
                                 div {
                                     class: "text-center",
                                     div { class: "text-2xl mb-1", "📊" }
-                                    div { 
+                                    div {
                                         class: "text-xs font-semibold",
                                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                                         "记录"

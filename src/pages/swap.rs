@@ -1,18 +1,24 @@
 //! Swap Page - 代币交换页面（稳定币优先设计）
 //! 生产级Swap实现，集成1inch API，采用稳定币优先流程
 
+#![allow(
+    clippy::clone_on_copy,
+    clippy::redundant_closure,
+    clippy::type_complexity
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::molecules::onboarding_tour::OnboardingTour;
 use crate::components::molecules::user_feedback::{FeedbackType, UserFeedback};
 use crate::components::molecules::{
     kyc_verification::{KycVerificationInfo, KycVerificationStatus},
     order_tracking::{OrderStatus, OrderTracking, OrderTrackingInfo},
-    ChainSelector, ErrorMessage,
-    ExchangeRateLockCountdown, LimitDisplay, LimitInfo, LimitOrderForm, LimitOrderType,
-    LoadingState, NotificationType, OnboardingManager, OrderList, OrderListItem, OrderType,
-    PriceChangeDirection, PriceChangeIndicator, PriceChangeInfo, PriceChart, PriceDataPoint,
-    ProcessSteps, ProviderStatusInfo, ProviderStatusList, StablecoinBalanceCard, SwapConfirmDialog,
-    SwapConfirmInfo, TokenSelector, TransactionNotification, TransactionNotificationContainer,
+    ChainSelector, ErrorMessage, ExchangeRateLockCountdown, LimitDisplay, LimitInfo,
+    LimitOrderForm, LimitOrderType, LoadingState, NotificationType, OnboardingManager, OrderList,
+    OrderListItem, OrderType, PriceChangeDirection, PriceChangeIndicator, PriceChangeInfo,
+    PriceChart, PriceDataPoint, ProcessSteps, ProviderStatusInfo, ProviderStatusList,
+    StablecoinBalanceCard, SwapConfirmDialog, SwapConfirmInfo, TokenSelector,
+    TransactionNotification, TransactionNotificationContainer,
 };
 use crate::crypto::tx_signer::EthereumTxSigner;
 use crate::router::Route;
@@ -26,8 +32,9 @@ use crate::services::fee::FeeService;
 use crate::services::fiat_offramp::{FiatOfframpQuoteResponse, FiatOfframpService};
 use crate::services::fiat_onramp::{FiatOnrampService, FiatQuoteResponse};
 use crate::services::gas::{GasService, GasSpeed};
-use crate::services::price::PriceService;  // ✅ 添加PriceService用于获取代币美元价格
-// use crate::services::payment_gateway::{PaymentGatewayService, PaymentRequest}; // TODO: 实现后取消注释
+use crate::services::price::PriceService; // ✅ 添加PriceService用于获取代币美元价格
+                                          // use crate::services::payment_gateway::{PaymentGatewayService, PaymentRequest}; // TODO: 实现后取消注释
+use crate::features::wallet::unlock::ensure_wallet_unlocked;
 use crate::services::gas_limit::GasLimitService;
 use crate::services::limit_order::{
     LimitOrderQuery, LimitOrderResponse, LimitOrderService, LimitOrderType as ServiceLimitOrderType,
@@ -40,7 +47,6 @@ use crate::services::transaction_history::{
 };
 use crate::shared::design_tokens::Colors;
 use crate::shared::state::AppState;
-use crate::features::wallet::unlock::ensure_wallet_unlocked;
 use dioxus::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,28 +55,28 @@ use std::time::Duration;
 fn format_currency(amount: f64, decimals: usize) -> String {
     let formatted_number = format!("{:.decimals$}", amount, decimals = decimals);
     let parts: Vec<&str> = formatted_number.split('.').collect();
-    
+
     let integer_part = parts[0];
     let decimal_part = if parts.len() > 1 { parts[1] } else { "" };
-    
+
     // 添加千位分隔符
     let mut formatted = String::new();
     let chars: Vec<char> = integer_part.chars().collect();
     let len = chars.len();
-    
+
     for (i, c) in chars.iter().enumerate() {
         formatted.push(*c);
         let pos = len - i - 1;
-        if pos > 0 && pos % 3 == 0 {
+        if pos > 0 && pos.is_multiple_of(3) {
             formatted.push(',');
         }
     }
-    
+
     if !decimal_part.is_empty() {
         formatted.push('.');
         formatted.push_str(decimal_part);
     }
-    
+
     formatted
 }
 
@@ -166,8 +172,8 @@ pub fn Swap() -> Element {
             }
         };
     }
-	// 当前标签页
-	let active_tab = use_signal(|| SwapTab::Swap);
+    // 当前标签页
+    let active_tab = use_signal(|| SwapTab::Swap);
 
     // 标签页加载状态（懒加载优化）
     let tabs_loaded = use_signal(|| {
@@ -639,7 +645,7 @@ fn SwapTabContent(
                 .first()
                 .map(|a| a.address.clone())
                 .unwrap_or_default();
-            let app_state_for_spawn = app_state_clone.clone();
+            let app_state_for_spawn = app_state_clone;
 
             spawn(async move {
                 // 从TokenService获取代币列表并找到USDT和USDC
@@ -807,7 +813,7 @@ fn SwapTabContent(
                 }
 
                 // 缓存未命中，从API获取
-                let swap_service = SwapService::new(Arc::new(app_state_for_spawn));
+                let swap_service = SwapService::new(app_state_for_spawn);
                 match swap_service
                     .get_quote(&from_clone, &to_clone, &amount_clone, &chain_clone)
                     .await
@@ -823,7 +829,7 @@ fn SwapTabContent(
                             .write()
                             .set(cache_key, q.clone(), Some(Duration::from_secs(30)));
                         quote_sig_for_spawn.set(Some(q.clone()));
-                        
+
                         // ✅ 计算平台服务费（Swap操作，按交易金额美元价值百分比）
                         if let Ok(amount_f64) = amount_clone.parse::<f64>() {
                             if amount_f64 > 0.0 {
@@ -831,25 +837,37 @@ fn SwapTabContent(
                                 let price_service = PriceService::new(app_state_for_spawn.clone());
                                 let fee_service = FeeService::new(app_state_for_spawn.clone());
                                 let mut platform_fee_sig = platform_fee;
-                                let token_symbol = from_clone.clone();  // from_clone是token的symbol字符串
-                                
+                                let token_symbol = from_clone.clone(); // from_clone是token的symbol字符串
+
                                 spawn(async move {
                                     // 获取代币美元价格
                                     match price_service.get_price(&token_symbol).await {
                                         Ok(price_data) => {
                                             let usd_value = amount_f64 * price_data.usd;
-                                            log::info!("Swap金额: {} {}, 美元价值: ${:.2}", amount_f64, token_symbol, usd_value);
-                                            
+                                            log::info!(
+                                                "Swap金额: {} {}, 美元价值: ${:.2}",
+                                                amount_f64,
+                                                token_symbol,
+                                                usd_value
+                                            );
+
                                             // 使用美元价值计算平台服务费
-                                            match fee_service.calculate(
-                                                &chain_clone,
-                                                "swap",
-                                                usd_value  // 传递美元价值而不是代币数量
-                                            ).await {
+                                            match fee_service
+                                                .calculate(
+                                                    &chain_clone,
+                                                    "swap",
+                                                    usd_value, // 传递美元价值而不是代币数量
+                                                )
+                                                .await
+                                            {
                                                 Ok(fee_quote) => {
-                                                    platform_fee_sig.set(Some(fee_quote.platform_fee));
-                                                    log::info!("平台服务费(Swap): ${:.2} (规则ID: {})", 
-                                                        fee_quote.platform_fee, fee_quote.applied_rule_id);
+                                                    platform_fee_sig
+                                                        .set(Some(fee_quote.platform_fee));
+                                                    log::info!(
+                                                        "平台服务费(Swap): ${:.2} (规则ID: {})",
+                                                        fee_quote.platform_fee,
+                                                        fee_quote.applied_rule_id
+                                                    );
                                                 }
                                                 Err(e) => {
                                                     log::error!("计算平台服务费失败: {}", e);
@@ -1207,7 +1225,7 @@ fn SwapTabContent(
             let from_clone = from_symbol.clone();
             let to_clone = to_symbol.clone();
             let chain_clone = chain.clone();
-            let app_state_for_spawn = app_state_clone.clone();
+            let app_state_for_spawn = app_state_clone;
             let wallet_opt_clone = wallet_opt.clone(); // 克隆钱包信息用于交易签名
             let mut loading_sig_for_spawn = loading_sig;
             let mut err_sig_for_spawn = err_sig;
@@ -1219,7 +1237,7 @@ fn SwapTabContent(
                 loading_sig_for_spawn.set(true);
                 err_sig_for_spawn.set(None);
 
-                let swap_service = SwapService::new(Arc::new(app_state_for_spawn.clone()));
+                let swap_service = SwapService::new(app_state_for_spawn);
                 match swap_service
                     .execute(
                         &wallet_identifier,
@@ -1445,9 +1463,8 @@ fn SwapTabContent(
                                             // 企业级实现：更新swap_transactions表的状态和tx_hash
                                             let swap_id_clone = response.swap_id.clone();
                                             let tx_hash_clone = broadcast_response.tx_hash.clone();
-                                            let swap_service_for_update = SwapService::new(
-                                                Arc::new(app_state_for_spawn.clone()),
-                                            );
+                                            let swap_service_for_update =
+                                                SwapService::new(app_state_for_spawn);
 
                                             // 异步更新swap状态（不阻塞主流程）
                                             spawn(async move {
@@ -1474,9 +1491,8 @@ fn SwapTabContent(
                                             let swap_id_for_polling = response.swap_id.clone();
                                             let _tx_hash_for_polling =
                                                 broadcast_response.tx_hash.clone(); // 用于日志记录
-                                            let swap_service_for_polling = SwapService::new(
-                                                Arc::new(app_state_for_spawn.clone()),
-                                            );
+                                            let swap_service_for_polling =
+                                                SwapService::new(app_state_for_spawn);
                                             let notif_handler_for_polling =
                                                 notif_handler_for_spawn.clone();
 
@@ -1577,7 +1593,7 @@ fn SwapTabContent(
                                                                     } else {
                                                                         log::info!("Swap交易状态已更新为confirmed: swap_id={}, confirmations={}", 
                                                                             swap_id_for_polling, status.confirmations);
-                                                                        
+
                                                                         // 发送成功通知
                                                                         if let Some(handler) = notif_handler_for_polling.as_ref() {
                                                                             handler.call((
@@ -1721,9 +1737,8 @@ fn SwapTabContent(
 
                                             // 企业级实现：更新swap状态为失败
                                             let swap_id_clone = response.swap_id.clone();
-                                            let swap_service_for_update = SwapService::new(
-                                                Arc::new(app_state_for_spawn.clone()),
-                                            );
+                                            let swap_service_for_update =
+                                                SwapService::new(app_state_for_spawn);
 
                                             spawn(async move {
                                                 let _ = swap_service_for_update
@@ -2149,11 +2164,11 @@ fn SwapTabContent(
                         if let Some(fee) = platform_fee.read().clone() {
                             div {
                                 class: "flex justify-between",
-                                span { 
+                                span {
                                     style: format!("color: {};", Colors::TEXT_SECONDARY),
                                     "平台服务费"
                                 }
-                                span { 
+                                span {
                                     style: format!("color: {};", Colors::TEXT_PRIMARY),
                                     {format!("{:.6} ETH", fee)}
                                 }
@@ -2265,7 +2280,7 @@ fn BuyStablecoinTab() -> Element {
     let payment_order_id = use_signal(|| String::new());
     let payment_amount = use_signal(|| String::new());
     let payment_currency = use_signal(|| String::new());
-    
+
     // 支付表单字段
     let card_number = use_signal(|| String::new());
     let card_expiry = use_signal(|| String::new());
@@ -2344,7 +2359,7 @@ fn BuyStablecoinTab() -> Element {
                 }
 
                 // 缓存未命中，从API获取
-                let fiat_service = FiatOnrampService::new(Arc::new(app_state_for_spawn));
+                let fiat_service = FiatOnrampService::new(app_state_for_spawn);
                 match fiat_service
                     .get_quote(&amount_clone, "USD", &stablecoin_clone, &payment_clone)
                     .await
@@ -2358,7 +2373,7 @@ fn BuyStablecoinTab() -> Element {
                         // 记录报价锁定开始时间（30秒有效期）
                         let now = js_sys::Date::now() as u64 / 1000;
                         quote_lock_start_sig.set(Some(now));
-                        
+
                         // ✅ 计算平台服务费（Fiat Onramp操作，金额已是美元）
                         if let Ok(amount_f64) = amount_clone.parse::<f64>() {
                             if amount_f64 > 0.0 {
@@ -2366,15 +2381,21 @@ fn BuyStablecoinTab() -> Element {
                                 let mut platform_fee_sig = platform_fee;
                                 spawn(async move {
                                     // 法币入金的amount已经是美元金额，直接使用
-                                    match fee_service.calculate(
-                                        "ethereum",  // 默认以太坊链
-                                        "fiat_onramp",  // 法币入金操作
-                                        amount_f64  // 金额已是美元价值
-                                    ).await {
+                                    match fee_service
+                                        .calculate(
+                                            "ethereum",    // 默认以太坊链
+                                            "fiat_onramp", // 法币入金操作
+                                            amount_f64,    // 金额已是美元价值
+                                        )
+                                        .await
+                                    {
                                         Ok(fee_quote) => {
                                             platform_fee_sig.set(Some(fee_quote.platform_fee));
-                                            log::info!("平台服务费(FiatOnramp): ${:.2} (规则ID: {})", 
-                                                fee_quote.platform_fee, fee_quote.applied_rule_id);
+                                            log::info!(
+                                                "平台服务费(FiatOnramp): ${:.2} (规则ID: {})",
+                                                fee_quote.platform_fee,
+                                                fee_quote.applied_rule_id
+                                            );
                                         }
                                         Err(e) => {
                                             log::error!("计算平台服务费失败: {}", e);
@@ -2388,9 +2409,13 @@ fn BuyStablecoinTab() -> Element {
                     Err(e) => {
                         // 企业级：根据错误类型提供友好提示
                         let error_str = e.to_string();
-                        let friendly_error = if error_str.contains("404") || error_str.contains("not found") {
+                        let friendly_error = if error_str.contains("404")
+                            || error_str.contains("not found")
+                        {
                             "该交易对暂不支持，请尝试其他代币".to_string()
-                        } else if error_str.contains("500") || error_str.contains("Internal Server Error") {
+                        } else if error_str.contains("500")
+                            || error_str.contains("Internal Server Error")
+                        {
                             "报价服务暂时不可用，请稍后再试".to_string()
                         } else if error_str.contains("timeout") || error_str.contains("timed out") {
                             "网络请求超时，请检查网络连接".to_string()
@@ -2401,7 +2426,7 @@ fn BuyStablecoinTab() -> Element {
                         } else {
                             format!("获取报价失败: {}", error_str)
                         };
-                        
+
                         err_sig_for_spawn.set(Some(friendly_error.clone()));
                         quote_sig_for_spawn.set(None);
                         // 记录错误日志
@@ -2511,7 +2536,7 @@ fn BuyStablecoinTab() -> Element {
                 loading_sig_for_spawn.set(true);
                 err_sig_for_spawn.set(None);
 
-                let fiat_service = FiatOnrampService::new(Arc::new(app_state_for_spawn.clone()));
+                let fiat_service = FiatOnrampService::new(app_state_for_spawn);
                 match fiat_service
                     .create_order(
                         &amount_clone,
@@ -2550,10 +2575,10 @@ fn BuyStablecoinTab() -> Element {
                         payment_amount_sig.set(order.fiat_amount);
                         payment_currency_sig.set("USD".to_string()); // 当前仅支持USD
                         show_payment_modal_sig.set(true);
-                        
+
                         AppState::show_success(
                             toasts,
-                            format!("订单已创建，请在弹窗中完成支付"),
+                            "订单已创建，请在弹窗中完成支付".to_string(),
                         );
                     }
                     Err(e) => {
@@ -2826,7 +2851,7 @@ fn BuyStablecoinTab() -> Element {
                                     "即时到账 · 支持Visa/Mastercard"
                                 }
                             }
-                            
+
                             // 2. PayPal
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -2859,7 +2884,7 @@ fn BuyStablecoinTab() -> Element {
                                     "即时到账 · 全球支付"
                                 }
                             }
-                            
+
                             // 3. Apple Pay
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -2892,7 +2917,7 @@ fn BuyStablecoinTab() -> Element {
                                     "即时到账 · iOS设备"
                                 }
                             }
-                            
+
                             // 4. Google Pay
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -2925,7 +2950,7 @@ fn BuyStablecoinTab() -> Element {
                                     "即时到账 · Android设备"
                                 }
                             }
-                            
+
                             // 5. 支付宝
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -2958,7 +2983,7 @@ fn BuyStablecoinTab() -> Element {
                                     "即时到账 · 中国地区"
                                 }
                             }
-                            
+
                             // 6. 微信支付
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -3064,11 +3089,11 @@ fn BuyStablecoinTab() -> Element {
                         // ✅ 平台服务费显示（行业标准：完全免费！）
                         div {
                             class: "flex justify-between items-center",
-                            span { 
+                            span {
                                 style: format!("color: {};", Colors::TEXT_SECONDARY),
                                 "平台服务费 (IronCore)"
                             }
-                            span { 
+                            span {
                                 class: "font-bold",
                                 style: format!("color: {};", Colors::PAYMENT_SUCCESS),
                                 "$0.00 免费!"
@@ -3140,7 +3165,7 @@ fn BuyStablecoinTab() -> Element {
                     let mut card_holder_sig = card_holder_name;
                     let mut processing_sig = payment_processing;
                     let toasts = app_state.toasts;
-                    
+
                     rsx! {
                         PaymentModal {
                             order_id: payment_order_id,
@@ -3161,7 +3186,7 @@ fn BuyStablecoinTab() -> Element {
                             },
                             on_submit: move |_| {
                                 processing_sig.set(true);
-                                
+
                                 spawn(async move {
                                     gloo_timers::future::TimeoutFuture::new(2000).await;
                                     processing_sig.set(false);
@@ -3201,7 +3226,9 @@ fn WithdrawTab() -> Element {
 
     // ✅ 智能链选择：自动从from_token提取链类型，无需用户手动选择
     let selected_chain = use_memo(move || {
-        from_token.read().as_ref()
+        from_token
+            .read()
+            .as_ref()
             .map(|t| t.chain.as_str().to_string())
             .unwrap_or("ethereum".to_string())
     });
@@ -3328,7 +3355,7 @@ fn WithdrawTab() -> Element {
                 }
 
                 // 缓存未命中，从API获取
-                let offramp_service = FiatOfframpService::new(Arc::new(app_state_for_spawn));
+                let offramp_service = FiatOfframpService::new(app_state_for_spawn);
                 match offramp_service
                     .get_quote(
                         &token_clone,
@@ -3345,7 +3372,7 @@ fn WithdrawTab() -> Element {
                             .write()
                             .set(cache_key, q.clone(), Some(Duration::from_secs(30)));
                         quote_sig_for_spawn.set(Some(q.clone()));
-                        
+
                         // ✅ 计算平台服务费（Fiat Offramp操作，使用代币的美元价值）
                         if let Ok(amount_f64) = amount_clone.parse::<f64>() {
                             if amount_f64 > 0.0 {
@@ -3353,23 +3380,32 @@ fn WithdrawTab() -> Element {
                                 let price_service = PriceService::new(app_state_for_spawn.clone());
                                 let fee_service = FeeService::new(app_state_for_spawn.clone());
                                 let mut platform_fee_sig = platform_fee;
-                                let token_symbol = token_clone.clone();  // token_clone是token的symbol字符串
-                                
+                                let token_symbol = token_clone.clone(); // token_clone是token的symbol字符串
+
                                 spawn(async move {
                                     // 获取代币美元价格
                                     match price_service.get_price(&token_symbol).await {
                                         Ok(price_data) => {
                                             let usd_value = amount_f64 * price_data.usd;
-                                            log::info!("提现金额: {} {}, 美元价值: ${:.2}", amount_f64, token_symbol, usd_value);
-                                            
+                                            log::info!(
+                                                "提现金额: {} {}, 美元价值: ${:.2}",
+                                                amount_f64,
+                                                token_symbol,
+                                                usd_value
+                                            );
+
                                             // 使用美元价值计算平台服务费
-                                            match fee_service.calculate(
-                                                &chain_clone,
-                                                "fiat_offramp",
-                                                usd_value  // 传递美元价值而不是代币数量
-                                            ).await {
+                                            match fee_service
+                                                .calculate(
+                                                    &chain_clone,
+                                                    "fiat_offramp",
+                                                    usd_value, // 传递美元价值而不是代币数量
+                                                )
+                                                .await
+                                            {
                                                 Ok(fee_quote) => {
-                                                    platform_fee_sig.set(Some(fee_quote.platform_fee));
+                                                    platform_fee_sig
+                                                        .set(Some(fee_quote.platform_fee));
                                                     log::info!("平台服务费(FiatOfframp): ${:.2} (规则ID: {})", 
                                                         fee_quote.platform_fee, fee_quote.applied_rule_id);
                                                 }
@@ -3391,22 +3427,30 @@ fn WithdrawTab() -> Element {
                     Err(e) => {
                         // 企业级：根据错误类型提供友好提示
                         let error_str = e.to_string();
-                        let friendly_error = if error_str.contains("404") || error_str.contains("not found") {
+                        let friendly_error = if error_str.contains("404")
+                            || error_str.contains("not found")
+                        {
                             "该提现方式暂不支持，请选择其他方式".to_string()
-                        } else if error_str.contains("500") || error_str.contains("Internal Server Error") {
+                        } else if error_str.contains("500")
+                            || error_str.contains("Internal Server Error")
+                        {
                             "提现服务暂时不可用，请稍后再试".to_string()
                         } else if error_str.contains("timeout") || error_str.contains("timed out") {
                             "网络请求超时，请检查网络连接".to_string()
-                        } else if error_str.contains("minimum amount") || error_str.contains("too small") {
+                        } else if error_str.contains("minimum amount")
+                            || error_str.contains("too small")
+                        {
                             "提现金额过小，请增加金额后重试".to_string()
-                        } else if error_str.contains("maximum amount") || error_str.contains("too large") {
+                        } else if error_str.contains("maximum amount")
+                            || error_str.contains("too large")
+                        {
                             "提现金额超出限额，请减少金额后重试".to_string()
                         } else if error_str.contains("country") || error_str.contains("region") {
                             "该地区暂不支持此提现方式".to_string()
                         } else {
                             format!("获取提现报价失败: {}", error_str)
                         };
-                        
+
                         err_sig_for_spawn.set(Some(friendly_error.clone()));
                         quote_sig_for_spawn.set(None);
                         // 记录错误日志
@@ -3578,8 +3622,7 @@ fn WithdrawTab() -> Element {
                 loading_sig_for_spawn.set(true);
                 err_sig_for_spawn.set(None);
 
-                let offramp_service =
-                    FiatOfframpService::new(Arc::new(app_state_for_spawn.clone()));
+                let offramp_service = FiatOfframpService::new(app_state_for_spawn);
                 match offramp_service
                     .create_order(
                         &token_clone,
@@ -3816,7 +3859,7 @@ fn WithdrawTab() -> Element {
                                     "1-3工作日 · 全球支持"
                                 }
                             }
-                            
+
                             // 2. PayPal
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -3846,7 +3889,7 @@ fn WithdrawTab() -> Element {
                                     "即时到账 · 全球支付"
                                 }
                             }
-                            
+
                             // 3. Apple Pay
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -3876,7 +3919,7 @@ fn WithdrawTab() -> Element {
                                     "即时到账 · iOS设备"
                                 }
                             }
-                            
+
                             // 4. Google Pay
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -3906,7 +3949,7 @@ fn WithdrawTab() -> Element {
                                     "即时到账 · Android设备"
                                 }
                             }
-                            
+
                             // 5. 支付宝
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -3936,7 +3979,7 @@ fn WithdrawTab() -> Element {
                                     "即时到账 · 中国地区"
                                 }
                             }
-                            
+
                             // 6. 微信支付
                             button {
                                 class: "p-3 rounded-lg border text-left transition-all hover:scale-105",
@@ -4097,17 +4140,17 @@ fn WithdrawTab() -> Element {
                                 style: format!("color: {};", Colors::TEXT_PRIMARY),
                                 "💰 费用明细"
                             }
-                            
+
                             // 1. 提现手续费（第三方服务商：Banxa/MoonPay）
                             if !q.withdrawal_fee.is_empty() {
                                 div {
                                     class: "flex justify-between items-center py-1",
-                                    span { 
+                                    span {
                                         class: "text-sm",
                                         style: format!("color: {};", Colors::TEXT_SECONDARY),
                                         "🏦 提现手续费 (Banxa)"
                                     }
-                                    span { 
+                                    span {
                                         class: "text-sm font-medium",
                                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                                         {
@@ -4118,32 +4161,32 @@ fn WithdrawTab() -> Element {
                                     }
                                 }
                             }
-                            
+
                             // 2. 平台服务费（行业标准：完全免费！）
                             div {
                                 class: "flex justify-between items-center py-1",
-                                span { 
+                                span {
                                     class: "text-sm",
                                     style: format!("color: {};", Colors::TEXT_SECONDARY),
                                     "平台服务费 (IronCore)"
                                 }
-                                span { 
+                                span {
                                     class: "text-sm font-bold",
                                     style: "color: #22c55e;",  // 绿色强调免费
                                     "$0.00 免费!"
                                 }
                             }
-                            
+
                             // 3. 交换手续费（如果涉及代币→稳定币转换）
                             if !q.swap_fee.is_empty() {
                                 div {
                                     class: "flex justify-between items-center py-1",
-                                    span { 
+                                    span {
                                         class: "text-sm",
                                         style: format!("color: {};", Colors::TEXT_SECONDARY),
                                         "🔄 交换手续费"
                                     }
-                                    span { 
+                                    span {
                                         class: "text-sm font-medium",
                                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                                         {
@@ -4154,12 +4197,12 @@ fn WithdrawTab() -> Element {
                                     }
                                 }
                             }
-                            
+
                             // 总手续费（加粗显示）
                             div {
                                 class: "flex justify-between items-center py-2 mt-2 pt-2",
                                 style: format!("border-top: 1px dashed {};", Colors::BORDER_PRIMARY),
-                                span { 
+                                span {
                                     class: "text-sm font-semibold",
                                     style: format!("color: {};", Colors::TEXT_PRIMARY),
                                     "💰 总手续费"
@@ -4174,12 +4217,12 @@ fn WithdrawTab() -> Element {
                                     }
                                 }
                             }
-                            
+
                             // ✅ 预计到账金额（行业最佳实践：必须显示）
                             div {
                                 class: "flex justify-between items-center py-3 mt-2",
                                 style: format!("background: rgba(34, 197, 94, 0.1); border-radius: 8px; padding: 12px; border: 2px solid rgba(34, 197, 94, 0.3);"),
-                                span { 
+                                span {
                                     class: "text-base font-bold",
                                     style: format!("color: {};", Colors::TEXT_PRIMARY),
                                     "💵 您将收到"
@@ -4342,12 +4385,12 @@ fn LimitOrderTab(
         let chain_sig = selected_chain;
         let from_token_sig = from_token;
         let mut platform_fee_sig = platform_fee;
-        
+
         move || {
             let amount_val = amount_sig.read().clone();
             let chain_val = chain_sig.read().clone();
             let from_token_val = from_token_sig.read().clone();
-            
+
             if !amount_val.is_empty() {
                 if let Ok(amount_f64) = amount_val.parse::<f64>() {
                     if amount_f64 > 0.0 {
@@ -4356,26 +4399,38 @@ fn LimitOrderTab(
                             let token_symbol = token_info.symbol.clone();
                             let app_state_for_spawn = app_state_clone.clone();
                             let mut platform_fee_sig_spawn = platform_fee_sig;
-                            
+
                             spawn(async move {
                                 // 获取from_token的美元价格
                                 let price_service = PriceService::new(app_state_for_spawn.clone());
                                 match price_service.get_price(&token_symbol).await {
                                     Ok(price_data) => {
                                         let usd_value = amount_f64 * price_data.usd;
-                                        log::info!("限价单金额: {} {}, 美元价值: ${:.2}", amount_f64, token_symbol, usd_value);
-                                        
+                                        log::info!(
+                                            "限价单金额: {} {}, 美元价值: ${:.2}",
+                                            amount_f64,
+                                            token_symbol,
+                                            usd_value
+                                        );
+
                                         // 使用美元价值计算平台服务费
                                         let fee_service = FeeService::new(app_state_for_spawn);
-                                        match fee_service.calculate(
-                                            &chain_val,
-                                            "limit_order",
-                                            usd_value  // 传递美元价值而不是代币数量
-                                        ).await {
+                                        match fee_service
+                                            .calculate(
+                                                &chain_val,
+                                                "limit_order",
+                                                usd_value, // 传递美元价值而不是代币数量
+                                            )
+                                            .await
+                                        {
                                             Ok(fee_quote) => {
-                                                platform_fee_sig_spawn.set(Some(fee_quote.platform_fee));
-                                                log::info!("平台服务费(LimitOrder): ${:.2} (规则ID: {})", 
-                                                    fee_quote.platform_fee, fee_quote.applied_rule_id);
+                                                platform_fee_sig_spawn
+                                                    .set(Some(fee_quote.platform_fee));
+                                                log::info!(
+                                                    "平台服务费(LimitOrder): ${:.2} (规则ID: {})",
+                                                    fee_quote.platform_fee,
+                                                    fee_quote.applied_rule_id
+                                                );
                                             }
                                             Err(e) => {
                                                 log::error!("计算平台服务费失败: {}", e);
@@ -4466,7 +4521,7 @@ fn LimitOrderTab(
                 }
 
                 // 确保在spawn之前获取最新的app_state，这样token是最新的
-                let limit_order_service = LimitOrderService::new(Arc::new(app_state_for_spawn));
+                let limit_order_service = LimitOrderService::new(app_state_for_spawn);
                 let query = LimitOrderQuery {
                     order_type: None,
                     status: None,
@@ -4524,13 +4579,13 @@ fn LimitOrderTab(
         let notif_handler = on_notification.clone();
 
         move |order_id: String| {
-            let app_state_for_spawn = app_state_clone.clone();
+            let app_state_for_spawn = app_state_clone;
             let mut orders_sig_for_spawn = orders_sig;
             let notif_handler_for_spawn = notif_handler.clone();
             let order_id_clone = order_id.clone();
 
             spawn(async move {
-                let limit_order_service = LimitOrderService::new(Arc::new(app_state_for_spawn));
+                let limit_order_service = LimitOrderService::new(app_state_for_spawn);
 
                 match limit_order_service.cancel_order(&order_id_clone).await {
                     Ok(_) => {
@@ -4647,8 +4702,7 @@ fn LimitOrderTab(
                 };
 
                 // 创建限价单服务实例
-                let limit_order_service =
-                    LimitOrderService::new(Arc::new(app_state_for_spawn.clone()));
+                let limit_order_service = LimitOrderService::new(app_state_for_spawn);
 
                 // 调用后端API创建限价单
                 match limit_order_service
@@ -5071,7 +5125,7 @@ fn HistoryTab() -> Element {
                 }
 
                 // 确保在spawn之前获取最新的app_state，这样token是最新的
-                let history_service = TransactionHistoryService::new(Arc::new(app_state_for_spawn));
+                let history_service = TransactionHistoryService::new(app_state_for_spawn);
                 let query = TransactionHistoryQuery {
                     tx_type: filter_type_val.clone(),
                     status: filter_status_val.clone(),
@@ -5127,7 +5181,7 @@ fn HistoryTab() -> Element {
 
     // 加载订单列表的effect（当视图模式、筛选器或页码改变时自动触发）
     use_effect({
-        let app_state_clone = app_state.clone();
+        let app_state_clone = app_state;
         let fiat_orders_sig = fiat_orders;
         let orders_loading_sig = orders_loading;
         let orders_error_sig = orders_error;
@@ -5141,7 +5195,7 @@ fn HistoryTab() -> Element {
                 return;
             }
 
-            let app_state_for_spawn = app_state_clone.clone();
+            let app_state_for_spawn = app_state_clone;
             let filter_status_val = filter_status_sig.read().clone();
             let page = *current_page_sig.read();
 
@@ -5153,8 +5207,8 @@ fn HistoryTab() -> Element {
                 orders_loading_clone.set(true);
                 orders_error_clone.set(None);
 
-                let onramp_service = FiatOnrampService::new(Arc::new(app_state_for_spawn.clone()));
-                let offramp_service = FiatOfframpService::new(Arc::new(app_state_for_spawn));
+                let onramp_service = FiatOnrampService::new(app_state_for_spawn);
+                let offramp_service = FiatOfframpService::new(app_state_for_spawn);
 
                 // 同时获取充值订单和提现订单
                 let (onramp_result, offramp_result) = futures::join!(
@@ -5351,11 +5405,8 @@ fn HistoryTab() -> Element {
                                     let mut show_advanced_search_sig = show_advanced_search;
                                     move |evt: dioxus::html::KeyboardEvent| {
                                         // Esc: 关闭高级搜索面板
-                                        match evt.key() {
-                                            dioxus::html::Key::Escape => {
+                                        if evt.key() == dioxus::html::Key::Escape {
                                             show_advanced_search_sig.set(false);
-                                            }
-                                            _ => {}
                                         }
                                     }
                                 },
@@ -6078,16 +6129,16 @@ fn HistoryTab() -> Element {
                         let filter_status_for_refresh = filter_status;
 
                         // 重试订单处理函数
-                        let app_state_for_retry = app_state.clone();
+                        let app_state_for_retry = app_state;
                         let orders_error_sig = orders_error;
                         let filter_status_refresh = filter_status_for_refresh;
                         let handle_retry = move |order_id: String| {
-                            let app_state_clone = app_state_for_retry.clone();
+                            let app_state_clone = app_state_for_retry;
                             let mut orders_error_clone = orders_error_sig;
                             let mut filter_status_trigger = filter_status_refresh;
                             spawn(async move {
-                                let onramp_service = FiatOnrampService::new(Arc::new(app_state_clone.clone()));
-                                let offramp_service = FiatOfframpService::new(Arc::new(app_state_clone));
+                                let onramp_service = FiatOnrampService::new(app_state_clone);
+                                let offramp_service = FiatOfframpService::new(app_state_clone);
 
                                 // 先尝试onramp重试
                                 let retry_result = onramp_service.retry_order(&order_id).await;
@@ -6123,16 +6174,16 @@ fn HistoryTab() -> Element {
                         };
 
                         // 取消订单处理函数
-                        let app_state_for_cancel = app_state.clone();
+                        let app_state_for_cancel = app_state;
                         let orders_error_sig = orders_error;
                         let filter_status_refresh = filter_status_for_refresh;
                         let handle_cancel = move |order_id: String| {
-                            let app_state_clone = app_state_for_cancel.clone();
+                            let app_state_clone = app_state_for_cancel;
                             let mut orders_error_clone = orders_error_sig;
                             let mut filter_status_trigger = filter_status_refresh;
                             spawn(async move {
-                                let onramp_service = FiatOnrampService::new(Arc::new(app_state_clone.clone()));
-                                let offramp_service = FiatOfframpService::new(Arc::new(app_state_clone));
+                                let onramp_service = FiatOnrampService::new(app_state_clone);
+                                let offramp_service = FiatOfframpService::new(app_state_clone);
 
                                 // 先尝试onramp取消
                                 let cancel_result = onramp_service.cancel_order(&order_id).await;
@@ -6166,13 +6217,13 @@ fn HistoryTab() -> Element {
                         };
 
                         // 查看订单详情处理函数
-                        let app_state_for_details = app_state.clone();
+                        let app_state_for_details = app_state;
                         let selected_order_id_sig = selected_order_id;
         let order_details_sig = order_details;
         let order_details_loading_sig = order_details_loading;
         let order_details_error_sig = order_details_error;
                         let handle_view_details = move |order_id: String| {
-                            let app_state_clone = app_state_for_details.clone();
+                            let app_state_clone = app_state_for_details;
                             let mut selected_order_id_clone = selected_order_id_sig;
                             let mut order_details_clone = order_details_sig;
                             let mut order_details_loading_clone = order_details_loading_sig;
@@ -6184,8 +6235,8 @@ fn HistoryTab() -> Element {
 
                             spawn(async move {
                                 // 尝试从onramp和offramp服务获取订单详情
-                                let onramp_service = FiatOnrampService::new(Arc::new(app_state_clone.clone()));
-                                let offramp_service = FiatOfframpService::new(Arc::new(app_state_clone.clone()));
+                                let onramp_service = FiatOnrampService::new(app_state_clone);
+                                let offramp_service = FiatOfframpService::new(app_state_clone);
 
                                 // 先尝试onramp
                                 match onramp_service.get_order_status(&order_id).await {
@@ -7140,7 +7191,7 @@ fn TransactionHistoryItemCard(transaction: TransactionHistoryItem) -> Element {
                         div {
                             class: "space-y-1 text-xs",
                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                            
+
                             // ⛽ Gas费（区块链网络费用）
                             if let Some(ref gas_fee) = transaction.gas_fee {
                                 div {
@@ -7155,7 +7206,7 @@ fn TransactionHistoryItemCard(transaction: TransactionHistoryItem) -> Element {
                                     span { "查询中..." }
                                 }
                             }
-                            
+
                             // 平台服务费（钱包服务商按百分比动态收取）
                             // 后端API根据 gas.platform_fee_rules 表实时计算
                             // 费率参考行业标准：通常为交易金额的 0.1% - 1.0%
@@ -7180,7 +7231,7 @@ fn TransactionHistoryItemCard(transaction: TransactionHistoryItem) -> Element {
                                     }
                                 }
                             }
-                            
+
                             // 💰 总计
                             div {
                                 class: "font-semibold mt-1 pt-1 border-t flex justify-between",
@@ -7206,7 +7257,7 @@ fn TransactionHistoryItemCard(transaction: TransactionHistoryItem) -> Element {
                                 }
                             }
                         }
-                        
+
                         // 💡 费用透明说明
                         div {
                             class: "mt-2 p-2 rounded text-xs leading-relaxed",
@@ -7280,12 +7331,12 @@ fn TransactionHistoryItemCard(transaction: TransactionHistoryItem) -> Element {
 /// 支付方式枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PaymentMethodType {
-    CreditCard,    // 信用卡/借记卡
-    PayPal,        // PayPal
-    ApplePay,      // Apple Pay
-    GooglePay,     // Google Pay
-    Alipay,        // 支付宝
-    WechatPay,     // 微信支付
+    CreditCard, // 信用卡/借记卡
+    PayPal,     // PayPal
+    ApplePay,   // Apple Pay
+    GooglePay,  // Google Pay
+    Alipay,     // 支付宝
+    WechatPay,  // 微信支付
 }
 
 impl PaymentMethodType {
@@ -7300,7 +7351,7 @@ impl PaymentMethodType {
             _ => Self::CreditCard,
         }
     }
-    
+
     fn title(&self) -> &'static str {
         match self {
             Self::CreditCard => "💳 信用卡/借记卡支付",
@@ -7318,7 +7369,7 @@ impl PaymentMethodType {
 // =============================================================================
 
 /// 支付弹窗组件 - 企业级真实支付集成
-/// 
+///
 /// 🚀 生产环境集成:
 /// - MoonPay: 信用卡、Apple Pay、Google Pay
 /// - Transak: 银行转账、信用卡
@@ -7342,7 +7393,7 @@ fn PaymentModal(
     let payment_type = PaymentMethodType::from_string(&payment_method.read());
     let mut payment_error = use_signal(|| None::<String>);
     let payment_success = use_signal(|| false);
-    
+
     // 获取当前钱包地址
     let wallet_address = use_memo(move || {
         app_state
@@ -7352,14 +7403,14 @@ fn PaymentModal(
             .and_then(|w| w.accounts.first().map(|a| a.address.clone()))
             .unwrap_or_default()
     });
-    
+
     // TODO: 真实支付处理函数 - 等待 payment_gateway 服务实现
     // 临时占位实现
     let _handle_payment = move || {
         log::warn!("PaymentGatewayService 尚未实现，支付功能暂时不可用");
         payment_error.set(Some("支付网关服务正在开发中，敬请期待".to_string()));
     };
-    
+
     rsx! {
         // 遮罩层
         div {
@@ -7369,13 +7420,13 @@ fn PaymentModal(
                     on_close.call(());
                 }
             },
-            
+
             // 弹窗内容
             div {
                 class: "relative w-full max-w-md rounded-xl shadow-2xl p-6",
                 style: format!("background: {}; border: 1px solid {};", Colors::BG_SECONDARY, Colors::BORDER_PRIMARY),
                 onclick: move |e| e.stop_propagation(),
-                
+
                 // 关闭按钮
                 button {
                     class: "absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full transition-all hover:opacity-80",
@@ -7384,39 +7435,39 @@ fn PaymentModal(
                     disabled: *processing.read(),
                     "✕"
                 }
-                
+
                 // 标题
                 h2 {
                     class: "text-2xl font-bold mb-2",
                     style: format!("color: {};", Colors::TEXT_PRIMARY),
                     "🚀 {payment_type.title()}"
                 }
-                
+
                 // 生产环境标记
                 div {
                     class: "mb-4 px-3 py-1 rounded-full inline-block",
                     style: "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 0.75rem; font-weight: 600;",
                     "✓ 生产环境 · 真实支付"
                 }
-                
+
                 // 支付信息
                 div {
                     class: "space-y-4",
-                    
+
                     // 订单ID
                     div {
                         class: "text-sm",
                         style: format!("color: {};", Colors::TEXT_SECONDARY),
                         "订单 ID: {order_id.read()}"
                     }
-                    
+
                     // 金额显示
                     div {
                         class: "text-2xl font-bold",
                         style: format!("color: {};", Colors::TEXT_PRIMARY),
                         "{amount.read()} {currency.read()}"
                     }
-                    
+
                     // 支付方式
                     div {
                         class: "text-sm",
@@ -7424,7 +7475,7 @@ fn PaymentModal(
                         "支付方式: {payment_type.title()}"
                     }
                 }
-                
+
                 // 提交按钮
                 button {
                     class: "w-full mt-6 py-3 px-4 rounded-lg font-semibold transition-all hover:opacity-90",
@@ -7435,14 +7486,14 @@ fn PaymentModal(
                         }
                     },
                     disabled: *processing.read(),
-                    
+
                     if *processing.read() {
                         "⏳ 处理中..."
                     } else {
                         "🚀 确认支付"
                     }
                 }
-                
+
                 // 错误提示
                 if let Some(err) = payment_error.read().as_ref() {
                     div {
@@ -7451,7 +7502,7 @@ fn PaymentModal(
                         "❌ {err}"
                     }
                 }
-                
+
                 // 成功提示
                 if *payment_success.read() {
                     div {

@@ -31,7 +31,7 @@ pub struct CountrySupportService {
 }
 
 impl CountrySupportService {
-    pub fn new(app_state: Arc<AppState>) -> Self {
+    pub fn new(app_state: AppState) -> Self {
         Self {
             api_client: Arc::new(app_state.get_api_client()),
         }

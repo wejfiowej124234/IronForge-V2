@@ -7,6 +7,7 @@ use crate::shared::state::AppState;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use wasm_bindgen_futures::spawn_local;
 
 const PRICE_CACHE_TTL_SECS: u64 = 300; // 5 minutes
@@ -45,7 +46,7 @@ impl PriceService {
     /// # Returns
     /// Current USD price and 24h change percentage
     pub async fn get_price(&self, symbol: &str) -> Result<CoinPrice, AppError> {
-        let _coin_id = self.symbol_to_coingecko_id(symbol);
+        let _coin_id = Self::symbol_to_coingecko_id(symbol);
         let prices = self.get_prices(&[symbol]).await?;
 
         prices
@@ -67,7 +68,7 @@ impl PriceService {
     ) -> Result<HashMap<String, CoinPrice>, AppError> {
         let coin_ids: Vec<String> = symbols
             .iter()
-            .map(|s| self.symbol_to_coingecko_id(s))
+            .map(|s| Self::symbol_to_coingecko_id(s))
             .collect();
 
         let ids_param = coin_ids.join(",");
@@ -88,7 +89,11 @@ impl PriceService {
 
         // Fetch from backend API proxy (avoids CORS + rate limits)
         let api_client = self.app_state.get_api_client();
-        let backend_url = format!("{}/api/v1/prices?symbols={}", api_client.base_url(), symbols.join(","));
+        let backend_url = format!(
+            "{}/api/v1/prices?symbols={}",
+            api_client.base_url(),
+            symbols.join(",")
+        );
 
         tracing::info!("Fetching prices from backend: {}", backend_url);
 
@@ -99,7 +104,10 @@ impl PriceService {
             .await
             .map_err(|e| {
                 tracing::error!("Backend price fetch failed: {}", e);
-                AppError::Api(ApiError::RequestFailed(format!("Backend unavailable: {}", e)))
+                AppError::Api(ApiError::RequestFailed(format!(
+                    "Backend unavailable: {}",
+                    e
+                )))
             })?
             .text()
             .await
@@ -124,12 +132,20 @@ impl PriceService {
             data: BackendPricesResponse,
         }
 
-        let backend_resp: BackendApiResponse = serde_json::from_str(&response_text).map_err(|e| {
-            tracing::error!("Failed to parse backend response: {} - Response: {}", e, response_text);
-            AppError::Api(ApiError::ResponseError(format!("Invalid backend response: {}", e)))
-        })?;
+        let backend_resp: BackendApiResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                tracing::error!(
+                    "Failed to parse backend response: {} - Response: {}",
+                    e,
+                    response_text
+                );
+                AppError::Api(ApiError::ResponseError(format!(
+                    "Invalid backend response: {}",
+                    e
+                )))
+            })?;
 
-        let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
+        let now = now_secs();
         let mut prices = HashMap::new();
 
         // Convert backend response to our CoinPrice format
@@ -173,7 +189,7 @@ impl PriceService {
     }
 
     /// Map common symbol to CoinGecko ID
-    fn symbol_to_coingecko_id(&self, symbol: &str) -> String {
+    fn symbol_to_coingecko_id(symbol: &str) -> String {
         let id = match symbol.to_uppercase().as_str() {
             "BTC" => "bitcoin",
             "ETH" => "ethereum",
@@ -188,6 +204,21 @@ impl PriceService {
             _ => &symbol.to_lowercase(),
         };
         id.to_string()
+    }
+}
+
+fn now_secs() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        (js_sys::Date::new_0().get_time() / 1000.0) as u64
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
     }
 }
 
@@ -236,12 +267,9 @@ mod tests {
 
     #[test]
     fn test_symbol_to_coingecko_id() {
-        let app_state = AppState::new();
-        let service = PriceService::new(app_state);
-
-        assert_eq!(service.symbol_to_coingecko_id("BTC"), "bitcoin");
-        assert_eq!(service.symbol_to_coingecko_id("eth"), "ethereum");
-        assert_eq!(service.symbol_to_coingecko_id("SOL"), "solana");
+        assert_eq!(PriceService::symbol_to_coingecko_id("BTC"), "bitcoin");
+        assert_eq!(PriceService::symbol_to_coingecko_id("eth"), "ethereum");
+        assert_eq!(PriceService::symbol_to_coingecko_id("SOL"), "solana");
     }
 
     #[test]

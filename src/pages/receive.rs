@@ -109,7 +109,7 @@ pub fn Receive() -> Element {
                             // 链信息显示
                             div {
                                 class: "mb-8 p-4 rounded-xl",
-                                style: format!("background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%); border: 2px solid {}; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);", 
+                                style: format!("background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(79, 70, 229, 0.05) 100%); border: 2px solid {}; box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);",
                                     "rgba(99, 102, 241, 0.3)"),
                                 div {
                                     class: "flex items-center justify-between",
@@ -129,7 +129,7 @@ pub fn Receive() -> Element {
                                     }
                                 }
                             }
-                            
+
                             // 二维码显示组件
                             QrCodeDisplay {
                                 address: account.address.clone(),
@@ -160,17 +160,17 @@ pub fn Receive() -> Element {
                                         div {
                                             class: "text-sm space-y-2",
                                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            p { 
+                                            p {
                                                 class: "flex items-start gap-2",
                                                 span { "•" }
                                                 span { {format!("仅向此地址发送 {} 网络的资产", account.chain_label())} }
                                             }
-                                            p { 
+                                            p {
                                                 class: "flex items-start gap-2",
                                                 span { "•" }
                                                 span { "跨链转账将导致资产永久丢失，无法找回" }
                                             }
-                                            p { 
+                                            p {
                                                 class: "flex items-start gap-2",
                                                 span { "•" }
                                                 span { "建议首次使用时先发送小额测试" }

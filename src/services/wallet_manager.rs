@@ -19,6 +19,12 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 const PBKDF2_ITERATIONS: u32 = 600_000; // OWASP 2023标准
 const SESSION_TIMEOUT_MS: u64 = 15 * 60 * 1000; // 15分钟
 
+type DerivedAddressMaps = (
+    HashMap<String, String>,
+    HashMap<String, String>,
+    HashMap<String, String>,
+);
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 数据结构
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -116,15 +122,7 @@ impl WalletManager {
         Ok((mnemonic_phrase, wallet_data))
     }
 
-    /// 派生多链地址
-    fn derive_addresses(
-        &self,
-        mnemonic: &Mnemonic,
-    ) -> Result<(
-        HashMap<String, String>,
-        HashMap<String, String>,
-        HashMap<String, String>,
-    )> {
+    fn derive_addresses(&self, mnemonic: &Mnemonic) -> Result<DerivedAddressMaps> {
         let seed = mnemonic.to_seed("");
         let key_manager = KeyManager::new(seed.to_vec());
 
@@ -135,14 +133,14 @@ impl WalletManager {
         // EVM链（ETH, BSC, Polygon）- 使用secp256k1
         let eth_private_key = key_manager.derive_eth_private_key(0)?;
         let eth_address = key_manager.get_eth_address(&eth_private_key)?;
-        
+
         // 从私钥派生公钥（用于后端记录，不涉及签名）
         use k256::ecdsa::SigningKey;
         let key_bytes = hex::decode(&eth_private_key)?;
         let signing_key = SigningKey::from_bytes(key_bytes.as_slice().into())?;
         let verifying_key = k256::ecdsa::VerifyingKey::from(&signing_key);
         let eth_pubkey = hex::encode(verifying_key.to_encoded_point(false).as_bytes());
-        
+
         addresses.insert("ETH".to_string(), eth_address.clone());
         addresses.insert("BSC".to_string(), eth_address.clone());
         addresses.insert("POLYGON".to_string(), eth_address);
@@ -156,12 +154,12 @@ impl WalletManager {
         // Bitcoin
         let btc_private_key = key_manager.derive_btc_private_key(0)?;
         let btc_address = key_manager.get_btc_address(&btc_private_key)?;
-        
+
         let btc_key_bytes = hex::decode(&btc_private_key)?;
         let btc_signing_key = SigningKey::from_bytes(btc_key_bytes.as_slice().into())?;
         let btc_verifying_key = k256::ecdsa::VerifyingKey::from(&btc_signing_key);
         let btc_pubkey = hex::encode(btc_verifying_key.to_encoded_point(true).as_bytes()); // 压缩格式
-        
+
         addresses.insert("BTC".to_string(), btc_address);
         public_keys.insert("BTC".to_string(), btc_pubkey);
         derivation_paths.insert("BTC".to_string(), "m/84'/0'/0'/0/0".to_string());
@@ -169,10 +167,10 @@ impl WalletManager {
         // Solana - ✅ 企业级实现：使用真实的 Ed25519 公钥
         let sol_private_key = key_manager.derive_sol_private_key(0)?;
         let sol_address = key_manager.get_sol_address(&sol_private_key)?;
-        
+
         // ✅ 获取真实的 hex 编码公钥（而非地址）
         let sol_pubkey = key_manager.get_sol_public_key(&sol_private_key)?;
-        
+
         addresses.insert("SOL".to_string(), sol_address);
         public_keys.insert("SOL".to_string(), sol_pubkey);
         derivation_paths.insert("SOL".to_string(), "m/44'/501'/0'/0'".to_string());
@@ -180,10 +178,10 @@ impl WalletManager {
         // TON - ✅ 企业级实现：使用真实的 Ed25519 公钥
         let ton_private_key = key_manager.derive_ton_private_key(0)?;
         let ton_address = key_manager.get_ton_address(&ton_private_key)?;
-        
+
         // ✅ 获取真实的 hex 编码公钥（而非地址）
         let ton_pubkey = key_manager.get_ton_public_key(&ton_private_key)?;
-        
+
         addresses.insert("TON".to_string(), ton_address);
         public_keys.insert("TON".to_string(), ton_pubkey);
         derivation_paths.insert("TON".to_string(), "m/44'/607'/0'/0'/0'/0'".to_string());
@@ -225,8 +223,8 @@ impl WalletManager {
 
         Ok(EncryptedMnemonic {
             ciphertext: BASE64.encode(&ciphertext),
-            salt: BASE64.encode(&salt),
-            nonce: BASE64.encode(&nonce_bytes),
+            salt: BASE64.encode(salt),
+            nonce: BASE64.encode(nonce_bytes),
             algorithm: "AES-256-GCM".to_string(),
             iterations: PBKDF2_ITERATIONS,
         })

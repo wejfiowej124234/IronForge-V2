@@ -1,6 +1,13 @@
 //! Wallet Recover Modal - 钱包恢复模态框
 //! 用于新设备场景，提示用户恢复钱包
 
+#![allow(
+    clippy::clone_on_copy,
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::type_complexity
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::input::{Input, InputType};
 use crate::components::atoms::modal::Modal;

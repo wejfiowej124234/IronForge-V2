@@ -4,7 +4,7 @@
 use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct UserState {
     pub is_authenticated: bool,
     pub user_id: Option<String>,
@@ -17,21 +17,6 @@ pub struct UserState {
     pub token_created_at: Option<u64>, // Token创建时间戳（秒），用于判断是否过期
 }
 
-impl Default for UserState {
-    fn default() -> Self {
-        Self {
-            is_authenticated: false,
-            user_id: None,
-            email: None,
-            username: None,
-            avatar_url: None,
-            access_token: None,
-            created_at: None,
-            token_created_at: None,
-        }
-    }
-}
-
 impl UserState {
     /// 加载用户状态（从LocalStorage）
     /// 自动检查token是否过期（1小时），过期则清理
@@ -41,7 +26,7 @@ impl UserState {
             if let Some(token_time) = stored.token_created_at {
                 let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
                 let token_age = now.saturating_sub(token_time);
-                
+
                 // Token已过期（1小时=3600秒）
                 if token_age >= 3600 {
                     #[cfg(debug_assertions)]

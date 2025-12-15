@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_bindgen_futures::spawn_local;
 
+type MessageHandlers = Arc<Vec<Box<dyn Fn(WsMessage) + Send + Sync>>>;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ConnectionState {
     Disconnected,
@@ -54,7 +56,7 @@ pub struct WebSocketManager {
     max_reconnect_attempts: u32,
     reconnect_delay_ms: u32,
     pub last_message: Signal<Option<WsMessage>>,
-    message_handlers: Arc<Vec<Box<dyn Fn(WsMessage) + Send + Sync>>>,
+    message_handlers: MessageHandlers,
 }
 
 impl WebSocketManager {
@@ -234,11 +236,12 @@ mod tests {
 
     #[test]
     fn test_connection_state_transitions() {
-        let mut state = Signal::new(ConnectionState::Disconnected);
-        assert_eq!(*state.read(), ConnectionState::Disconnected);
+        // Avoid `Signal` here: it requires a Dioxus runtime even in unit tests.
+        let mut state = ConnectionState::Disconnected;
+        assert_eq!(state, ConnectionState::Disconnected);
 
-        state.set(ConnectionState::Connecting);
-        assert_eq!(*state.read(), ConnectionState::Connecting);
+        state = ConnectionState::Connecting;
+        assert_eq!(state, ConnectionState::Connecting);
     }
 
     #[test]

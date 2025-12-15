@@ -31,7 +31,7 @@ impl SpeedTier {
     }
 
     /// 转换为GasSpeed（用于GasService）
-    pub fn to_gas_speed(&self) -> GasSpeed {
+    pub fn to_gas_speed(self) -> GasSpeed {
         match self {
             SpeedTier::Slow => GasSpeed::Slow,
             SpeedTier::Medium => GasSpeed::Average,
@@ -178,7 +178,7 @@ impl PaymentRouterEnterprise {
         let target_account = wallet
             .accounts
             .iter()
-            .find(|acc| ChainType::from_str(&acc.chain).map_or(false, |c| c == target_chain));
+            .find(|acc| ChainType::from_str(&acc.chain) == Some(target_chain));
 
         // 2. 检查目标链是否有足够余额
         if let Some(account) = target_account {
@@ -361,11 +361,10 @@ impl PaymentRouterEnterprise {
                         );
                         21000u64 // 安全默认值：标准ETH转账（协议规定，仅作为最后保障）
                     });
-                let gas_fee_wei =
-                    parse_hex_u64(&selected_gas.max_fee_per_gas).unwrap_or_else(|_| {
-                        // 降级：从Gwei转换
-                        (selected_gas.max_fee_per_gas_gwei * 1e9) as u64
-                    });
+                let gas_fee_wei = parse_hex_u64(&selected_gas.max_fee_per_gas).unwrap_or(
+                    // 降级：从Gwei转换
+                    (selected_gas.max_fee_per_gas_gwei * 1e9) as u64,
+                );
                 let total_gas_wei = gas_fee_wei * gas_limit;
                 breakdown.gas_fee = total_gas_wei as f64 / 1e18; // Wei转ETH
 
@@ -693,8 +692,9 @@ impl PaymentRouterEnterprise {
             .filter(|&v| v > 0.0 && v.is_finite() && v <= 0.1) // 验证范围：0-10%
             .or_else(|| {
                 // 尝试反向链组合
-                let reverse_key = format!("ESTIMATED_BRIDGE_FEE_RATE_{}_{}", 
-                    to.as_str().to_uppercase(), 
+                let reverse_key = format!(
+                    "ESTIMATED_BRIDGE_FEE_RATE_{}_{}",
+                    to.as_str().to_uppercase(),
                     from.as_str().to_uppercase()
                 );
                 std::env::var(&reverse_key)
@@ -711,8 +711,9 @@ impl PaymentRouterEnterprise {
             })
             .or_else(|| {
                 // 降级：尝试读取旧的格式（兼容性）
-                let pair_key_old = format!("ESTIMATED_BRIDGE_FEE_{}_{}", 
-                    from.as_str().to_uppercase(), 
+                let pair_key_old = format!(
+                    "ESTIMATED_BRIDGE_FEE_{}_{}",
+                    from.as_str().to_uppercase(),
                     to.as_str().to_uppercase()
                 );
                 std::env::var(&pair_key_old)

@@ -8,7 +8,7 @@ use crate::shared::state::AppState;
 // URL编码辅助函数
 fn encode_uri_component(s: &str) -> String {
     // 使用JavaScript的encodeURIComponent进行URL编码
-    let encoded = js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
+    js_sys::Reflect::get(&js_sys::global(), &"encodeURIComponent".into())
         .ok()
         .and_then(|f| {
             js_sys::Function::from(f)
@@ -16,8 +16,7 @@ fn encode_uri_component(s: &str) -> String {
                 .ok()
         })
         .and_then(|v| v.as_string())
-        .unwrap_or_else(|| s.to_string());
-    encoded
+        .unwrap_or_else(|| s.to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize)]

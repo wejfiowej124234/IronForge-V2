@@ -59,7 +59,7 @@ fn App() -> Element {
         spawn(async move {
             loop {
                 gloo_timers::future::TimeoutFuture::new(30000).await; // Check every 30 seconds
-                // 检查账户自动锁定
+                                                                      // 检查账户自动锁定
                 let last_active = *app_state_clone.last_active.read();
                 let now = (js_sys::Date::new_0().get_time() / 1000.0) as u64;
                 if now - last_active > 3600 {

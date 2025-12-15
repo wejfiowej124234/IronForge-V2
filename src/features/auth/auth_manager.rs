@@ -53,7 +53,7 @@ impl AuthManager {
     /// ```
     pub async fn set_token(mut self, token: String) {
         let now = Self::current_timestamp();
-        
+
         // 1. 更新UserState
         {
             let mut user_state = self.app_state.user.write();
@@ -195,7 +195,7 @@ impl AuthManager {
         if let Some(token) = token_opt {
             // 先验证Token是否有效
             let is_valid = self.validate_token().unwrap_or(false);
-            
+
             if is_valid {
                 let mut api = self.app_state.api.write();
                 api.set_bearer_token(token);
@@ -254,7 +254,7 @@ pub async fn handle_unauthorized(app_state: AppState) {
     warn!("🚨 收到401错误，清理认证状态");
     let auth_manager = AuthManager::new(app_state);
     auth_manager.clear_auth();
-    
+
     // 可选：导航到登录页
     // let nav = use_navigator();
     // nav.push("/login");

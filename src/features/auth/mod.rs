@@ -9,6 +9,6 @@ pub mod auth_manager;
 pub mod hooks;
 pub mod state;
 
-pub use auth_manager::{AuthManager, handle_unauthorized, is_unauthorized_error};
+pub use auth_manager::{handle_unauthorized, is_unauthorized_error, AuthManager};
 pub use state::UserState;
 // pub use hooks::use_auth;  // 未使用，暂时注释

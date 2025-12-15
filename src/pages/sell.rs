@@ -1,11 +1,18 @@
 //! Sell Page - 法币提现页面
 //! 企业级法币提现实现，支持代币→稳定币→法币的自动两步流程
 
+#![allow(
+    clippy::upper_case_acronyms,
+    clippy::redundant_closure,
+    clippy::redundant_locals,
+    clippy::clone_on_copy
+)]
+
 use crate::components::atoms::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::atoms::card::Card;
 use crate::components::atoms::input::{Input, InputType};
-use crate::components::molecules::ErrorMessage;
 use crate::components::molecules::token_selector::TokenSelector; // ✅ 添加TokenSelector
+use crate::components::molecules::ErrorMessage;
 use crate::features::wallet::unlock::ensure_wallet_unlocked;
 use crate::router::Route;
 use crate::services::address_detector::ChainType; // ✅ 添加ChainType
@@ -19,12 +26,12 @@ use std::sync::Arc;
 /// 提现方式选项（6个国际标准方式）
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum WithdrawMethod {
-    BankCard,      // 银行卡（推荐）
-    PayPal,        // PayPal
-    ApplePay,      // Apple Pay
-    GooglePay,     // Google Pay
-    Alipay,        // 支付宝
-    WechatPay,     // 微信支付
+    BankCard,  // 银行卡（推荐）
+    PayPal,    // PayPal
+    ApplePay,  // Apple Pay
+    GooglePay, // Google Pay
+    Alipay,    // 支付宝
+    WechatPay, // 微信支付
 }
 
 impl WithdrawMethod {
@@ -49,7 +56,7 @@ impl WithdrawMethod {
             WithdrawMethod::WechatPay => "💬 微信支付 WeChat Pay",
         }
     }
-    
+
     fn description(&self) -> &'static str {
         match self {
             WithdrawMethod::BankCard => "1-3工作日 · 全球支持",
@@ -60,7 +67,7 @@ impl WithdrawMethod {
             WithdrawMethod::WechatPay => "即时到账 · 中国地区",
         }
     }
-    
+
     fn is_recommended(&self) -> bool {
         matches!(self, WithdrawMethod::BankCard)
     }
@@ -247,9 +254,9 @@ pub fn Sell() -> Element {
 
     // 获取报价
     let get_quote = {
-        let app_state = app_state.clone();
+        let app_state = app_state;
         move |_| {
-            let app_state = app_state.clone();
+            let app_state = app_state;
             let token_opt = selected_token.read().clone();
             if token_opt.is_none() {
                 return; // 未选择代币，不执行
@@ -268,9 +275,9 @@ pub fn Sell() -> Element {
                 is_loading.set(true);
                 error_message.set(None);
 
-                let service = FiatOfframpService::new(Arc::new(app_state));
+                let service = FiatOfframpService::new(app_state);
                 match service
-                    .get_quote(&token, &amount, &chain, currency, withdraw_method)
+                    .get_quote(&token, &amount, chain, currency, withdraw_method)
                     .await
                 {
                     Ok(q) => {
@@ -288,9 +295,9 @@ pub fn Sell() -> Element {
 
     // 创建提现订单
     let create_order = {
-        let app_state = app_state.clone();
+        let app_state = app_state;
         move |_| {
-            let app_state = app_state.clone();
+            let app_state = app_state;
             let token_opt = selected_token.read().clone();
             if token_opt.is_none() {
                 return; // 未选择代币，不执行
@@ -335,12 +342,12 @@ pub fn Sell() -> Element {
 
                 let quote_id = current_quote.map(|q| q.quote_id).unwrap_or_default();
 
-                let service = FiatOfframpService::new(Arc::new(app_state));
+                let service = FiatOfframpService::new(app_state);
                 match service
                     .create_order(
                         &token,
                         &amount,
-                        &chain,
+                        chain,
                         currency,
                         withdraw_method,
                         &recipient,
@@ -375,7 +382,7 @@ pub fn Sell() -> Element {
                                 div { class: "text-6xl mb-4", "✅" }
                                 h1 { class: "text-2xl font-bold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "提现订单创建成功！" }
                                 p { class: "text-sm mb-6", style: format!("color: {};", Colors::TEXT_SECONDARY), "您的提现订单已提交，系统将自动处理代币兑换和法币提现流程。" }
-                                
+
                                 if let Some(id) = (*order_id.read()).clone() {
                                     div { class: "mb-6 p-4 rounded-lg", style: format!("background: {}; border: 1px solid {};", Colors::BG_SECONDARY, Colors::BORDER_PRIMARY),
                                         p { class: "text-xs", style: format!("color: {};", Colors::TEXT_SECONDARY), "订单ID：" }
@@ -390,7 +397,7 @@ pub fn Sell() -> Element {
                                         onclick: move |_| { navigator.push(Route::Dashboard {}); },
                                         "返回仪表盘"
                                     }
-                                    p { class: "text-xs", style: format!("color: {};", Colors::TEXT_SECONDARY), 
+                                    p { class: "text-xs", style: format!("color: {};", Colors::TEXT_SECONDARY),
                                         match *selected_withdraw_method.read() {
                                             WithdrawMethod::BankCard => "⏰ 预计 1-3 个工作日到账，请留意您的银行账户。",
                                             WithdrawMethod::PayPal => "⚡ PayPal 预计即时到账，请检查您的 PayPal 账户。",
@@ -421,8 +428,8 @@ pub fn Sell() -> Element {
                         "← 返回仪表盘"
                     }
                     h1 { class: "text-3xl font-bold", style: format!("color: {};", Colors::TEXT_PRIMARY), "💰 提现到银行卡" }
-                    p { class: "text-sm mt-2", style: format!("color: {};", Colors::TEXT_SECONDARY), 
-                        "将加密货币提现为法币，支持 ETH、BTC、SOL 等主流币种。系统将自动完成：代币 → 稳定币 → 法币的两步转换。" 
+                    p { class: "text-sm mt-2", style: format!("color: {};", Colors::TEXT_SECONDARY),
+                        "将加密货币提现为法币，支持 ETH、BTC、SOL 等主流币种。系统将自动完成：代币 → 稳定币 → 法币的两步转换。"
                     }
                 }
 
@@ -549,7 +556,7 @@ pub fn Sell() -> Element {
                                         }))
                                     },
                                 }
-                                p { class: "text-xs mt-1", style: format!("color: {};", Colors::TEXT_SECONDARY), 
+                                p { class: "text-xs mt-1", style: format!("color: {};", Colors::TEXT_SECONDARY),
                                     match *selected_withdraw_method.read() {
                                         WithdrawMethod::BankCard => "⚠️ 银行卡提现需1-3工作日，请确保卡号准确",
                                         WithdrawMethod::PayPal => "✅ PayPal即时到账，支持全球200+国家",
@@ -591,7 +598,7 @@ pub fn Sell() -> Element {
                                                 span { style: format!("color: {};", Colors::TEXT_PRIMARY), "{q.exchange_rate_token_to_stable}" }
                                             }
                                         }
-                                        
+
                                         // 第二步：稳定币→法币
                                         div { class: "pt-2",
                                             p { class: "text-xs font-semibold mb-2", style: format!("color: {};", Colors::TECH_PRIMARY), "步骤 2: 稳定币 → 法币" }

@@ -70,7 +70,7 @@ impl KeyManager {
 
         // Hash160: SHA256 then RIPEMD160
         let sha256_hash = Sha256::digest(public_key_compressed);
-        let hash160 = ripemd::Ripemd160::digest(&sha256_hash);
+        let hash160 = ripemd::Ripemd160::digest(sha256_hash);
 
         // Bech32 encoding for native segwit (witness version 0)
         let hrp = "bc"; // mainnet, use "tb" for testnet
@@ -127,10 +127,10 @@ impl KeyManager {
     pub fn derive_sol_private_key(&self, index: u32) -> Result<String> {
         use hmac::{Hmac, Mac};
         use sha2::Sha512;
-        
+
         // ✅ 使用 SLIP-0010 标准派生 Ed25519 密钥
         // Solana 使用 m/44'/501'/0'/0' 派生路径
-        
+
         // 从种子派生主密钥
         let mut hmac = Hmac::<Sha512>::new_from_slice(b"ed25519 seed")
             .map_err(|e| anyhow!("HMAC error: {}", e))?;
@@ -138,7 +138,7 @@ impl KeyManager {
         let i = hmac.finalize().into_bytes();
         let master_key = &i[0..32];
         let master_chain_code = &i[32..64];
-        
+
         // 硬化派生 m/44'
         let key_44 = self.derive_ed25519_hardened(master_key, master_chain_code, 44)?;
         // 硬化派生 m/44'/501'
@@ -147,7 +147,7 @@ impl KeyManager {
         let key_0 = self.derive_ed25519_hardened(&key_501.0, &key_501.1, 0)?;
         // 硬化派生 m/44'/501'/0'/index'
         let final_key = self.derive_ed25519_hardened(&key_0.0, &key_0.1, index)?;
-        
+
         Ok(hex::encode(final_key.0))
     }
 
@@ -184,10 +184,10 @@ impl KeyManager {
     pub fn derive_ton_private_key(&self, index: u32) -> Result<String> {
         use hmac::{Hmac, Mac};
         use sha2::Sha512;
-        
+
         // ✅ 使用 SLIP-0010 标准派生 Ed25519 密钥
         // TON 使用 m/44'/607'/0'/0'/0'/index' 派生路径
-        
+
         // 从种子派生主密钥
         let mut hmac = Hmac::<Sha512>::new_from_slice(b"ed25519 seed")
             .map_err(|e| anyhow!("HMAC error: {}", e))?;
@@ -195,7 +195,7 @@ impl KeyManager {
         let i = hmac.finalize().into_bytes();
         let master_key = &i[0..32];
         let master_chain_code = &i[32..64];
-        
+
         // 硬化派生路径
         let key_44 = self.derive_ed25519_hardened(master_key, master_chain_code, 44)?;
         let key_607 = self.derive_ed25519_hardened(&key_44.0, &key_44.1, 607)?;
@@ -203,7 +203,7 @@ impl KeyManager {
         let key_0_2 = self.derive_ed25519_hardened(&key_0_1.0, &key_0_1.1, 0)?;
         let key_0_3 = self.derive_ed25519_hardened(&key_0_2.0, &key_0_2.1, 0)?;
         let final_key = self.derive_ed25519_hardened(&key_0_3.0, &key_0_3.1, index)?;
-        
+
         Ok(hex::encode(final_key.0))
     }
 
@@ -229,7 +229,7 @@ impl KeyManager {
 
         // Hash the public key to create account ID
         let mut hasher = Sha256::new();
-        hasher.update(&pubkey_bytes);
+        hasher.update(pubkey_bytes);
         let hash = hasher.finalize();
 
         // Construct raw address: workchain (1 byte) + account (32 bytes)
@@ -276,22 +276,22 @@ impl KeyManager {
     ) -> Result<([u8; 32], [u8; 32])> {
         use hmac::{Hmac, Mac};
         use sha2::Sha512;
-        
+
         // 硬化派生：使用 0x00 || parent_key || (0x80000000 + index)
         let hardened_index = 0x80000000u32 + index;
-        
+
         let mut hmac = Hmac::<Sha512>::new_from_slice(parent_chain_code)
             .map_err(|e| anyhow!("HMAC error: {}", e))?;
         hmac.update(&[0x00]); // 0x00 前缀
         hmac.update(parent_key);
         hmac.update(&hardened_index.to_be_bytes());
-        
+
         let i = hmac.finalize().into_bytes();
         let mut child_key = [0u8; 32];
         let mut child_chain_code = [0u8; 32];
         child_key.copy_from_slice(&i[0..32]);
         child_chain_code.copy_from_slice(&i[32..64]);
-        
+
         Ok((child_key, child_chain_code))
     }
 

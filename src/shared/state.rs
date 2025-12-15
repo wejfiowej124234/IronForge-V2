@@ -20,13 +20,13 @@ pub struct AppState {
     pub key_manager: Signal<Option<KeyManager>>,
     pub last_active: Signal<u64>, // Timestamp for auto-lock (账户锁 - 1小时自动登出)
     pub wallet_unlock_time: Signal<HashMap<String, u64>>, // 每个钱包的解锁时间戳（钱包锁 - 15分钟自动锁）
-    pub is_online: Signal<bool>,  // Network status
-    pub cache: Signal<HashMap<String, CacheEntry>>, // Smart Cache: Key -> Value + timestamp
-    pub inflight_requests: Signal<HashSet<String>>, // Request Deduplication
+    pub is_online: Signal<bool>,                          // Network status
+    pub cache: Signal<HashMap<String, CacheEntry>>,       // Smart Cache: Key -> Value + timestamp
+    pub inflight_requests: Signal<HashSet<String>>,       // Request Deduplication
     #[allow(dead_code)] // 隐私模式，用于未来功能
     pub privacy_mode: Signal<bool>, // Hide amounts when blurred
-    pub toasts: Signal<Vec<ToastMessage>>, // Toast消息列表
-    pub language: Signal<String>, // 当前语言: "zh", "en", "ja", "ko"
+    pub toasts: Signal<Vec<ToastMessage>>,                // Toast消息列表
+    pub language: Signal<String>,                         // 当前语言: "zh", "en", "ja", "ko"
 }
 
 impl AppState {
@@ -56,7 +56,7 @@ impl AppState {
             toasts: Signal::new(Vec::new()),
             language: Signal::new(
                 gloo_storage::LocalStorage::get::<String>("app_language")
-                    .unwrap_or_else(|_| "zh".to_string())
+                    .unwrap_or_else(|_| "zh".to_string()),
             ),
         }
     }
@@ -66,18 +66,21 @@ impl AppState {
     /// This ensures the ApiClient always has the current authentication token
     pub fn get_api_client(&self) -> ApiClient {
         use wasm_bindgen::prelude::*;
-        
+
         #[wasm_bindgen]
         extern "C" {
             #[wasm_bindgen(js_namespace = console)]
             fn log(s: &str);
         }
-        
+
         let mut api_client = (*self.api.read()).clone();
         let user_state = self.user.read();
 
         #[cfg(debug_assertions)]
-        log(&format!("🔍 AppState.get_api_client(): is_authenticated={}", user_state.is_authenticated));
+        log(&format!(
+            "🔍 AppState.get_api_client(): is_authenticated={}",
+            user_state.is_authenticated
+        ));
 
         // Always sync the token from UserState to ensure we have the latest token
         if user_state.is_authenticated {
@@ -127,7 +130,7 @@ impl AppState {
 
     /// Handle 401 Unauthorized error - clear expired token and update user state
     /// This should be called when an API request returns 401
-    /// 
+    ///
     /// ## 重构说明
     /// 此方法现在委托给 `AuthManager::clear_auth()`
     /// 建议直接使用 `crate::features::auth::handle_unauthorized(app_state)`
