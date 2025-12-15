@@ -1,0 +1,10 @@
+{
+  "name": "IronForge Wallet",
+  "short_name": "IronForge",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "Multi-chain non-custodial cryptocurrency wallet",
+  "icons": []
+}
