@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* IronForge Logo Styles */
+@layer components {
+  /* Logo 容器 */
+  .logo-planet-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 旋转动画 */
+  .logo-planet {
+    width: 100%;
+    height: 100%;
+    animation: rotate-planet 20s linear infinite;
+    transform-origin: center center;
+  }
+
+  @keyframes rotate-planet {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* 星球主体 */
+  .planet-body {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  }
+
+  /* 坑洼动画 */
+  .crater {
+    animation: crater-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes crater-pulse {
+    0%, 100% {
+      opacity: 0.2;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(1.1);
+    }
+  }
+
+  /* 光晕脉冲 */
+  .glow-outer {
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% {
+      opacity: 0.2;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.3;
+      transform: scale(1.05);
+    }
+  }
+
+  /* 内圈光晕 */
+  .glow-inner {
+    animation: glow-pulse-inner 3s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+
+  @keyframes glow-pulse-inner {
+    0%, 100% {
+      opacity: 0.15;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.2;
+      transform: scale(1.03);
+    }
+  }
+}

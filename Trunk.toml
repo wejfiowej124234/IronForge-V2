@@ -1,0 +1,20 @@
+[build]
+target = "index.html"
+release = true
+dist = "dist"
+public_url = "/"
+
+[watch]
+# Trunk只支持目录名，不支持通配符
+# 确保dist和target目录存在，或者移除不存在的目录
+ignore = ["dist", "target"]
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8080
+open = true
+
+[[hooks]]
+stage = "build"
+command = "npm.cmd"
+command_arguments = ["run", "build:css"]

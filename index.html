@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IronForge Wallet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link data-trunk rel="css" href="public/styles.css" />
+    <link data-trunk rel="copy-file" href="public/manifest.json" />
+    <link rel="manifest" href="manifest.json" />
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+        // Simple bridge for QR Scanner
+        window.qrScannerBridge = {
+            scanner: null,
+            start: function(elementId, onScanSuccess, onScanError) {
+                if (this.scanner) {
+                    this.stop();
+                }
+                this.scanner = new Html5Qrcode(elementId);
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                
+                this.scanner.start({ facingMode: "environment" }, config, 
+                    (decodedText, decodedResult) => {
+                        if (onScanSuccess) onScanSuccess(decodedText);
+                    },
+                    (errorMessage) => {
+                        // parse error, ignore it.
+                    }
+                ).catch(err => {
+                    if (onScanError) onScanError(err);
+                });
+            },
+            stop: function() {
+                if (this.scanner) {
+                    this.scanner.stop().then((ignore) => {
+                        // QR Code scanning is stopped.
+                        this.scanner.clear();
+                        this.scanner = null;
+                    }).catch((err) => {
+                        console.error("Failed to stop scanner", err);
+                    });
+                }
+            }
+        };
+    </script>
+</head>
+<body>
+    <div id="main"></div>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Trunk/WASM
+dist/
+.trunk/
+*.wasm
+
+# Node
+node_modules/
+package-lock.json
+
+# Build artifacts
+*.log
+trunk.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config (keep example files)
+config.toml
+!config.example.toml
+
+# Test artifacts
+test-*.html
+clear_localstorage.html
+check_token.html

@@ -1,0 +1,132 @@
+[package]
+name = "iron-forge"
+version = "0.1.0"
+edition = "2021"
+authors = ["IronForge Team"]
+description = "IronForge V2 - Enterprise Web3 Wallet Frontend"
+
+# Hybrid crate: both library and binary
+[lib]
+name = "iron_forge"
+path = "src/lib.rs"
+
+[[bin]]
+name = "iron-forge"
+path = "src/main.rs"
+
+# ⚡ 性能优化：忽略未使用代码警告（加速编译）
+[lints.rust]
+dead_code = "allow"
+unused_variables = "allow"
+unused_imports = "allow"
+
+[dependencies]
+# Dioxus Framework
+dioxus = { version = "0.7", features = ["web", "router"] }
+dioxus-core = "0.7"
+dioxus-logger = "0.7"
+
+# Async & Runtime
+# Note: For WASM targets, tokio's rt feature is not needed (WASM is single-threaded)
+# tokio = { version = "1.36", features = ["macros", "sync", "rt"] }  # Disabled for WASM compatibility
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+
+# Logging
+log = "0.4"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP Client
+# Note: For WASM, use gloo-net instead of reqwest (reqwest 0.11 doesn't have good WASM support)
+# reqwest = { version = "0.11", features = ["json"] }  # Disabled for WASM compatibility
+gloo-net = "0.5"
+
+# Web Sys
+web-sys = { version = "0.3", features = [
+    "Window", 
+    "EventTarget", 
+    "Event", 
+    "Navigator", 
+    "Clipboard",
+    "HtmlCanvasElement",
+    "CanvasRenderingContext2d",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Node",
+    "DomRect",
+    "Url"
+] }
+gloo-timers = { version = "0.3", features = ["futures"] }
+futures = "0.3"
+
+# State & Storage
+# gloo-storage = "0.3" # Moved below
+
+# Crypto & Security (Phase 1)
+bip39 = { version = "2.0", features = ["rand"] }
+bip32 = "0.5"
+# bitcoin = { version = "0.31", features = ["rand"] } # Removed to avoid C-compiler requirement on Windows
+# secp256k1 = { version = "0.28", features = ["rand"] } # Removed to avoid C-compiler requirement on Windows
+ed25519-dalek = "2.1"
+k256 = "0.13"
+rand = { version = "0.8", default-features = false, features = ["getrandom"] }
+getrandom = { version = "0.2", features = ["js"] }
+aes-gcm = "0.10"
+aes = "0.8"
+ctr = "0.9"
+argon2 = "0.5"
+zeroize = { version = "1.7", features = ["derive"] }
+hex = "0.4"
+base64 = "0.21"
+sha2 = "0.10"
+sha3 = "0.10"
+hmac = "0.12"
+pbkdf2 = "0.12"
+scrypt = "0.11"
+ripemd = "0.1"
+
+# UI Utilities
+qrcode = { version = "0.12", default-features = false, features = ["default", "svg"] }
+
+bs58 = "0.5"
+bech32 = "0.9"
+
+# Storage
+indexed-db = "0.2"
+gloo-storage = "0.3"
+anyhow = "1.0"
+thiserror = "1.0"
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde", "wasmbind"] }
+strum = { version = "0.26", features = ["derive"] }
+tracing = "0.1"
+tracing-wasm = "0.2"
+uuid = { version = "1", features = ["serde", "v4", "js"] }
+
+# Blockchain Clients (Phase 2/3)
+# ethers = { version = "2.0", default-features = false, features = ["rustls"] } # Commented out until needed to avoid build issues
+# solana-client-wasm = "..."
+
+# JS System
+js-sys = "0.3"
+
+# Primitive Types for U256 support
+primitive-types = { version = "0.12", default-features = false }
+
+# RLP encoding for Ethereum transactions
+rlp = "0.5"
+
+# Testing (WASM)
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+# Error Reporting (Optional - requires Sentry account)
+# sentry = { version = "0.32", features = ["wasm"] }
+
+# Note: Profile settings should be in workspace root Cargo.toml
+# Profile settings removed to avoid warning
