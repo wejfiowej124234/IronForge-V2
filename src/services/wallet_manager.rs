@@ -72,6 +72,13 @@ impl WalletManager {
         Self { session_key: None }
     }
 
+    /// 获取当前解锁会话对应的钱包ID（如果已解锁）
+    pub fn current_wallet_id(&self) -> Option<&str> {
+        self.session_key
+            .as_ref()
+            .map(|session| session.wallet_id.as_str())
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 钱包创建
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
