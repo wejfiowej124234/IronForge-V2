@@ -68,6 +68,7 @@ jobs:
         run: cargo test --all-targets --all-features
 
       - name: Trunk build (release)
+        if: runner.os == 'Linux'
         run: trunk build --release
 
   security:
