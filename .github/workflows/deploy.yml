@@ -90,6 +90,13 @@ jobs:
         with:
           name: dist
           path: dist
+
+      - name: Package dist (for Release assets)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tar -czf dist.tar.gz -C dist .
+          sha256sum dist.tar.gz > dist.tar.gz.sha256
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -105,7 +112,9 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           name: IronForge Release ${{ github.ref_name }}
-          artifacts: dist/**
+          artifacts: |
+            dist.tar.gz
+            dist.tar.gz.sha256
           allowUpdates: true
           artifactErrorsFailBuild: true
           body: |
