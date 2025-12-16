@@ -23,9 +23,15 @@ pub struct ApiConfig {
 
 impl Default for ApiConfig {
     fn default() -> Self {
+        let base_url = option_env!("API_BASE_URL")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("http://localhost:8088")
+            .to_string();
+
         Self {
             // IronCore backend default port 8088
-            base_url: "http://localhost:8088".to_string(),
+            base_url,
             timeout: 30,
         }
     }
