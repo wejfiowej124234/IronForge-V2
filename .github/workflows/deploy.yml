@@ -162,7 +162,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          # GHCR image names must be lowercase; repo name contains uppercase.
+          images: ghcr.io/${{ github.repository_owner }}/ironforge-v2
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
