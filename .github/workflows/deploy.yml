@@ -104,7 +104,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          cname: wallet.zodiawallet.com  # Optional: Custom domain
+          # NOTE: Custom domain intentionally omitted. If you want one, configure DNS + HTTPS first,
+          # then re-add `cname:` or drive it via a repo variable.
       
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
