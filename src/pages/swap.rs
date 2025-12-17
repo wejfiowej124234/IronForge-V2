@@ -1107,8 +1107,10 @@ fn SwapTabContent(
                                 show_confirm_sig_for_check.set(true);
                             }
                             Err(e) => {
-                                err_sig_for_check
-                                    .set(Some(format!("无法获取余额，请稍后重试：{}", e)));
+                                #[cfg(debug_assertions)]
+                                log::debug!("balance_check_error={}", e);
+
+                                err_sig_for_check.set(Some("无法获取余额，请稍后重试".to_string()));
                             }
                         }
                     });
@@ -1314,8 +1316,11 @@ fn SwapTabContent(
                                         Ok(n) => n,
                                         Err(e) => {
                                             log::error!("获取nonce失败: {:?}", e);
-                                            err_sig_for_spawn
-                                                .set(Some(format!("获取nonce失败: {}", e)));
+                                            err_sig_for_spawn.set(Some(
+                                                crate::shared::ui_error::sanitize_user_message(
+                                                    format!("获取nonce失败: {}", e),
+                                                ),
+                                            ));
                                             loading_sig_for_spawn.set(false);
                                             return;
                                         }
@@ -1423,8 +1428,11 @@ fn SwapTabContent(
                                             Ok(key) => key,
                                             Err(e) => {
                                                 log::error!("获取私钥失败: {:?}", e);
-                                                err_sig_for_spawn
-                                                    .set(Some(format!("获取私钥失败: {}", e)));
+                                                err_sig_for_spawn.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("获取私钥失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading_sig_for_spawn.set(false);
                                                 return;
                                             }
@@ -1445,8 +1453,11 @@ fn SwapTabContent(
                                             Ok(tx) => tx,
                                             Err(e) => {
                                                 log::error!("签名交易失败: {:?}", e);
-                                                err_sig_for_spawn
-                                                    .set(Some(format!("签名交易失败: {}", e)));
+                                                err_sig_for_spawn.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("签名交易失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading_sig_for_spawn.set(false);
                                                 return;
                                             }
@@ -1752,8 +1763,11 @@ fn SwapTabContent(
                                                     .await;
                                             });
 
-                                            err_sig_for_spawn
-                                                .set(Some(format!("广播交易失败: {}", e)));
+                                            err_sig_for_spawn.set(Some(
+                                                crate::shared::ui_error::sanitize_user_message(
+                                                    format!("广播交易失败: {}", e),
+                                                ),
+                                            ));
                                             loading_sig_for_spawn.set(false);
                                         }
                                     }

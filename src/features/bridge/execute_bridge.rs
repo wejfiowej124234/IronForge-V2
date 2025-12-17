@@ -48,7 +48,9 @@ pub fn BridgeExecutePage() -> Element {
                     step.set(2);
                 }
                 Err(e) => {
-                    error.set(Some(format!("获取报价失败: {}", e)));
+                    error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("获取报价失败: {}", e),
+                    )));
                 }
             }
             
@@ -96,12 +98,16 @@ pub fn BridgeExecutePage() -> Element {
                             step.set(4);
                         }
                         Err(e) => {
-                            error.set(Some(format!("执行失败: {}", e)));
+                            error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                format!("执行失败: {}", e),
+                            )));
                         }
                     }
                 }
                 Err(e) => {
-                    error.set(Some(format!("签名失败: {}", e)));
+                    error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("签名失败: {}", e),
+                    )));
                 }
             }
             

@@ -111,7 +111,11 @@ pub fn LockScreen() -> Element {
                                                 }
                                                 Err(e) => {
                                                     loading.set(false);
-                                                    error_msg.set(Some(format!("解锁失败: {}", e)));
+                                                    error_msg.set(Some(
+                                                        crate::shared::ui_error::sanitize_user_message(
+                                                            format!("解锁失败: {}", e),
+                                                        ),
+                                                    ));
                                                     pwd_sig.set(String::new());
                                                 }
                                             }
@@ -215,7 +219,11 @@ pub fn LockScreen() -> Element {
                                             }
                                             Err(e) => {
                                                 loading.set(false);
-                                                error_msg.set(Some(format!("解锁失败: {}", e)));
+                                                error_msg.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("解锁失败: {}", e),
+                                                    ),
+                                                ));
                                                 pwd_sig.set(String::new());
                                             }
                                         }

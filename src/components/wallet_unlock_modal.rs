@@ -75,7 +75,9 @@ pub fn WalletUnlockModal(
                                 "钱包未在本地找到。这是新设备，需要恢复钱包才能解锁。请点击'恢复钱包'按钮。".to_string()
                             ));
                         } else {
-                            error.set(Some(format!("解锁失败: {}", e)));
+                            error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                format!("解锁失败: {}", e),
+                            )));
                         }
                     }
                 }

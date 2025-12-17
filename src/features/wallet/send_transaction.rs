@@ -84,12 +84,16 @@ pub fn SendTransactionPage(chain: String) -> Element {
                                 pending_tx.set(None);
                             }
                             Err(e) => {
-                                error.set(Some(format!("广播失败: {}", e)));
+                                error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                    format!("广播失败: {}", e),
+                                )));
                             }
                         }
                     }
                     Err(e) => {
-                        error.set(Some(format!("签名失败: {}", e)));
+                        error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                            format!("签名失败: {}", e),
+                        )));
                     }
                 }
             }

@@ -39,7 +39,9 @@ pub fn WalletUnlockModal(
                     on_unlocked.call(());
                 }
                 Err(e) => {
-                    error.set(Some(format!("解锁失败: {}", e)));
+                    error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("解锁失败: {}", e),
+                    )));
                 }
             }
             

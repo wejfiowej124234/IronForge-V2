@@ -122,7 +122,9 @@ pub fn BatchCreateMultiChain() -> Element {
                     step.set(3);
                 }
                 Err(e) => {
-                    error.set(Some(format!("创建失败: {}", e)));
+                    error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("创建失败: {}", e),
+                    )));
                 }
             }
             

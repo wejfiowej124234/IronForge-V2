@@ -106,7 +106,9 @@ pub fn TokenSelector(
                         }
                     }
                     Err(e) => {
-                        error_mut.set(Some(format!("加载代币列表失败: {}", e)));
+                        error_mut.set(Some(crate::shared::ui_error::sanitize_user_message(
+                            format!("加载代币列表失败: {}", e),
+                        )));
                     }
                 }
 
@@ -133,7 +135,9 @@ pub fn TokenSelector(
                         tokens_mut.set(token_list);
                     }
                     Err(e) => {
-                        error_mut.set(Some(format!("加载代币列表失败: {}", e)));
+                        error_mut.set(Some(crate::shared::ui_error::sanitize_user_message(
+                            format!("加载代币列表失败: {}", e),
+                        )));
 
                         #[cfg(debug_assertions)]
                         {

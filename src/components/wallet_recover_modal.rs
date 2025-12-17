@@ -133,7 +133,10 @@ pub fn WalletRecoverModal(
                     }
                     Err(e) => {
                         loading.set(false);
-                        let err_msg = format!("恢复失败: {}", e);
+                        let err_msg = crate::shared::ui_error::sanitize_user_message(format!(
+                            "恢复失败: {}",
+                            e
+                        ));
                         AppState::show_error(toasts, err_msg.clone());
                         error.set(Some(err_msg));
                     }

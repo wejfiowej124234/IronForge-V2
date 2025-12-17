@@ -415,7 +415,9 @@ pub fn Bridge() -> Element {
                                         show_history_sig.set(true);
                                     }
                                     Err(e) => {
-                                        err.set(Some(format!("获取历史记录失败: {}", e)));
+                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                            format!("获取历史记录失败: {}", e),
+                                        )));
                                     }
                                 }
                             });

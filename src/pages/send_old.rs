@@ -471,14 +471,18 @@ pub fn Send() -> Element {
                                                     Ok(signed) => signed,
                                                     Err(e) => {
                                                         loading.set(false);
-                                                        err.set(Some(format!("签名失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("签名失败: {}", e),
+                                                        )));
                                                         return;
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 loading.set(false);
-                                                err.set(Some(format!("获取私钥失败: {}", e)));
+                                                err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                    format!("获取私钥失败: {}", e),
+                                                )));
                                                 return;
                                             }
                                         }
@@ -522,14 +526,18 @@ pub fn Send() -> Element {
                                                     Ok(signed) => signed,
                                                     Err(e) => {
                                                         loading.set(false);
-                                                        err.set(Some(format!("签名失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("签名失败: {}", e),
+                                                        )));
                                                         return;
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 loading.set(false);
-                                                err.set(Some(format!("获取私钥失败: {}", e)));
+                                                err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                    format!("获取私钥失败: {}", e),
+                                                )));
                                                 return;
                                             }
                                         }
@@ -569,7 +577,9 @@ pub fn Send() -> Element {
                                                 let recent_blockhash = match recent_blockhash_res {
                                                     Ok(hash) => hash,
                                                     Err(e) => {
-                                                        err.set(Some(format!("获取最新区块哈希失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("获取最新区块哈希失败: {}", e),
+                                                        )));
                                                         loading.set(false);
                                                         return;
                                                     }
@@ -584,14 +594,18 @@ pub fn Send() -> Element {
                                                     Ok(signed) => signed,
                                                     Err(e) => {
                                                         loading.set(false);
-                                                        err.set(Some(format!("签名失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("签名失败: {}", e),
+                                                        )));
                                                         return;
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 loading.set(false);
-                                                err.set(Some(format!("获取私钥失败: {}", e)));
+                                                err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                    format!("获取私钥失败: {}", e),
+                                                )));
                                                 return;
                                             }
                                         }
@@ -634,7 +648,9 @@ pub fn Send() -> Element {
                                                 let seqno = match seqno_res {
                                                     Ok(s) => s,
                                                     Err(e) => {
-                                                        err.set(Some(format!("获取账户序列号失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("获取账户序列号失败: {}", e),
+                                                        )));
                                                         loading.set(false);
                                                         return;
                                                     }
@@ -649,14 +665,18 @@ pub fn Send() -> Element {
                                                     Ok(signed) => signed,
                                                     Err(e) => {
                                                         loading.set(false);
-                                                        err.set(Some(format!("签名失败: {}", e)));
+                                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                            format!("签名失败: {}", e),
+                                                        )));
                                                         return;
                                                     }
                                                 }
                                             }
                                             Err(e) => {
                                                 loading.set(false);
-                                                err.set(Some(format!("获取私钥失败: {}", e)));
+                                                err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                                    format!("获取私钥失败: {}", e),
+                                                )));
                                                 return;
                                             }
                                         }
@@ -717,7 +737,9 @@ pub fn Send() -> Element {
                                     Err(e) => {
                                         loading.set(false);
                                         AppState::show_error(app_state.toasts, format!("交易失败: {}", e));
-                                        err.set(Some(format!("交易失败: {}", e)));
+                                        err.set(Some(crate::shared::ui_error::sanitize_user_message(
+                                            format!("交易失败: {}", e),
+                                        )));
                                     }
                                 }
                             });
