@@ -777,6 +777,10 @@ video {
   margin-bottom: 0.5rem;
 }
 
+.-mt-6 {
+  margin-top: -1.5rem;
+}
+
 .mb-1 {
   margin-bottom: 0.25rem;
 }
@@ -833,6 +837,14 @@ video {
   margin-top: 0.25rem;
 }
 
+.mt-10 {
+  margin-top: 2.5rem;
+}
+
+.mt-12 {
+  margin-top: 3rem;
+}
+
 .mt-2 {
   margin-top: 0.5rem;
 }
@@ -847,6 +859,10 @@ video {
 
 .mt-6 {
   margin-top: 1.5rem;
+}
+
+.mt-8 {
+  margin-top: 2rem;
 }
 
 .block {
@@ -1157,6 +1173,10 @@ video {
 
 .gap-6 {
   gap: 1.5rem;
+}
+
+.gap-8 {
+  gap: 2rem;
 }
 
 .space-x-2 > :not([hidden]) ~ :not([hidden]) {
@@ -1994,6 +2014,10 @@ video {
 }
 
 @media (min-width: 640px) {
+  .sm\:-mt-8 {
+    margin-top: -2rem;
+  }
+
   .sm\:mb-12 {
     margin-bottom: 3rem;
   }
@@ -2158,12 +2182,20 @@ video {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .md\:grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .md\:grid-cols-6 {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .md\:flex-row {
     flex-direction: row;
+  }
+
+  .md\:gap-10 {
+    gap: 2.5rem;
   }
 
   .md\:py-24 {

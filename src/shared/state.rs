@@ -164,6 +164,12 @@ impl AppState {
 
     /// 显示错误消息
     pub fn show_error(toasts: Signal<Vec<ToastMessage>>, message: String) {
+        #[cfg(debug_assertions)]
+        {
+            tracing::debug!("toast_error_raw={}", message);
+        }
+
+        let message = crate::shared::ui_error::sanitize_user_message(message);
         Self::show_toast(toasts, message, ToastType::Error, Some(5000)); // 错误消息显示5秒
     }
 

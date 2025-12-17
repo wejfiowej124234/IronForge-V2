@@ -7,12 +7,14 @@ use crate::components::atoms::card::Card;
 use crate::components::logo::LogoPlanet;
 use crate::router::Route;
 use crate::shared::design_tokens::{Colors, Glass, Gradients};
+use crate::shared::state::AppState;
 use dioxus::prelude::*;
 
 /// Landing Page 组件
 #[component]
 pub fn Landing() -> Element {
     let navigator = use_navigator();
+    let app_state = use_context::<AppState>();
 
     rsx! {
         div {
@@ -107,6 +109,97 @@ pub fn Landing() -> Element {
                                 navigator.push(Route::Login {});
                             },
                             "登录账户"
+                        }
+                    }
+
+                    // 生态客户端入口（开发中）- 与“特性标签”区分：使用可点击小卡片
+                    div {
+                        class: "px-4 -mt-6 sm:-mt-8 mb-12 sm:mb-16",
+                        div {
+                            class: "max-w-3xl mx-auto",
+                            div {
+                                class: "text-center mb-3",
+                                p {
+                                    class: "text-xs sm:text-sm tracking-wide",
+                                    style: format!("color: {};", Colors::TEXT_TERTIARY),
+                                    "生态客户端（开发中）"
+                                }
+                            }
+                            div {
+                                class: "grid grid-cols-1 sm:grid-cols-3 gap-3",
+                                Card {
+                                    variant: crate::components::atoms::card::CardVariant::Strong,
+                                    padding: Some("12px".to_string()),
+                                    clickable: true,
+                                    class: Some("text-left".to_string()),
+                                    onclick: Some(EventHandler::new(move |_| {
+                                        AppState::show_info(
+                                            app_state.toasts,
+                                            "移动端 App 功能正在开发中，请先使用 Web3 钱包。".to_string(),
+                                        );
+                                    })),
+                                    div {
+                                        class: "flex items-center gap-3",
+                                        div {
+                                            class: "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                                            style: format!("background: {};", Gradients::PRIMARY),
+                                            span { class: "text-lg", "📱" }
+                                        }
+                                        div {
+                                            p { class: "text-sm font-semibold", style: format!("color: {};", Colors::TEXT_PRIMARY), "移动端 App" }
+                                            p { class: "text-xs", style: format!("color: {};", Colors::TEXT_TERTIARY), "Coming soon" }
+                                        }
+                                    }
+                                }
+                                Card {
+                                    variant: crate::components::atoms::card::CardVariant::Strong,
+                                    padding: Some("12px".to_string()),
+                                    clickable: true,
+                                    class: Some("text-left".to_string()),
+                                    onclick: Some(EventHandler::new(move |_| {
+                                        AppState::show_info(
+                                            app_state.toasts,
+                                            "XR 智能眼镜 功能正在开发中，请先使用 Web3 钱包。".to_string(),
+                                        );
+                                    })),
+                                    div {
+                                        class: "flex items-center gap-3",
+                                        div {
+                                            class: "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                                            style: format!("background: {};", Gradients::PRIMARY),
+                                            span { class: "text-lg", "🕶" }
+                                        }
+                                        div {
+                                            p { class: "text-sm font-semibold", style: format!("color: {};", Colors::TEXT_PRIMARY), "XR 智能眼镜" }
+                                            p { class: "text-xs", style: format!("color: {};", Colors::TEXT_TERTIARY), "Coming soon" }
+                                        }
+                                    }
+                                }
+                                Card {
+                                    variant: crate::components::atoms::card::CardVariant::Strong,
+                                    padding: Some("12px".to_string()),
+                                    clickable: true,
+                                    class: Some("text-left".to_string()),
+                                    onclick: Some(EventHandler::new(move |_| {
+                                        AppState::show_info(
+                                            app_state.toasts,
+                                            "浏览器扩展 功能正在开发中，请先使用 Web3 钱包。".to_string(),
+                                        );
+                                    })),
+                                    div {
+                                        class: "flex items-center gap-3",
+                                        div {
+                                            class: "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                                            style: format!("background: {};", Gradients::PRIMARY),
+                                            span { class: "text-lg", "🧩" }
+                                        }
+                                        div {
+                                            p { class: "text-sm font-semibold", style: format!("color: {};", Colors::TEXT_PRIMARY), "浏览器扩展" }
+                                            p { class: "text-xs", style: format!("color: {};", Colors::TEXT_TERTIARY), "Coming soon" }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -362,6 +455,274 @@ pub fn Landing() -> Element {
                             navigator.push(Route::CreateWallet {});
                         },
                         "创建钱包 →"
+                    }
+                }
+            }
+
+            // Footer - 通用站点底部信息（占位，后续可完善）
+            footer {
+                class: "mt-12",
+                style: format!(
+                    "background: {}; border-top: 1px solid {};",
+                    Colors::BG_SECONDARY,
+                    Colors::BORDER_PRIMARY
+                ),
+                div {
+                    class: "container mx-auto px-6 py-12",
+                    div {
+                        class: "max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8 md:gap-10",
+
+                        // 品牌 + 社交（左侧）
+                        div {
+                            class: "md:col-span-2",
+                            div {
+                                class: "flex items-center gap-3 mb-4",
+                                LogoPlanet {
+                                    size: crate::components::logo::LogoSize::Medium,
+                                    variant: crate::components::logo::LogoVariant::Glowing,
+                                }
+                                div {
+                                    p { class: "text-base font-semibold", style: format!("color: {};", Colors::TEXT_PRIMARY), "IronForge" }
+                                    p { class: "text-xs", style: format!("color: {};", Colors::TEXT_TERTIARY), "Non-custodial · Multi-chain · DeFi · Fiat" }
+                                }
+                            }
+                            p {
+                                class: "text-sm leading-relaxed mb-6 max-w-md",
+                                style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                "下一代非托管 Web3 钱包生态：Web + Mobile + Browser Extension + XR。"
+                            }
+
+                            // 社交入口（GitHub 真实跳转，其它先占位）
+                            div { class: "flex flex-wrap gap-3",
+                                a {
+                                    class: "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-[1.03]",
+                                    style: format!(
+                                        "background: rgba(99, 102, 241, 0.10); border: 1px solid {}; color: {};",
+                                        Colors::BORDER_PRIMARY,
+                                        Colors::TEXT_PRIMARY
+                                    ),
+                                    href: "https://github.com/wejfiowej124234",
+                                    target: "_blank",
+                                    rel: "noopener noreferrer",
+                                    title: "GitHub",
+                                    "🐙"
+                                }
+                                button {
+                                    class: "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-[1.03]",
+                                    style: format!(
+                                        "background: rgba(99, 102, 241, 0.10); border: 1px solid {}; color: {};",
+                                        Colors::BORDER_PRIMARY,
+                                        Colors::TEXT_PRIMARY
+                                    ),
+                                    title: "X（Coming soon）",
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "X / Twitter 账号即将上线。".to_string());
+                                    },
+                                    "𝕏"
+                                }
+                                button {
+                                    class: "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-[1.03]",
+                                    style: format!(
+                                        "background: rgba(99, 102, 241, 0.10); border: 1px solid {}; color: {};",
+                                        Colors::BORDER_PRIMARY,
+                                        Colors::TEXT_PRIMARY
+                                    ),
+                                    title: "Telegram（Coming soon）",
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "Telegram 群组即将上线。".to_string());
+                                    },
+                                    "✈️"
+                                }
+                                button {
+                                    class: "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-[1.03]",
+                                    style: format!(
+                                        "background: rgba(99, 102, 241, 0.10); border: 1px solid {}; color: {};",
+                                        Colors::BORDER_PRIMARY,
+                                        Colors::TEXT_PRIMARY
+                                    ),
+                                    title: "Discord（Coming soon）",
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "Discord 社区即将上线。".to_string());
+                                    },
+                                    "💬"
+                                }
+                                button {
+                                    class: "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-[1.03]",
+                                    style: format!(
+                                        "background: rgba(99, 102, 241, 0.10); border: 1px solid {}; color: {};",
+                                        Colors::BORDER_PRIMARY,
+                                        Colors::TEXT_PRIMARY
+                                    ),
+                                    title: "YouTube（Coming soon）",
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "YouTube 频道即将上线。".to_string());
+                                    },
+                                    "▶️"
+                                }
+                            }
+
+                            // 关于（放在左侧品牌区，更像行业站点布局）
+                            div {
+                                class: "mt-8",
+                                p { class: "text-sm font-semibold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "关于" }
+                                div { class: "space-y-3",
+                                    button {
+                                        class: "block text-sm text-left hover:underline",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        onclick: move |_| {
+                                            AppState::show_info(app_state.toasts, "隐私政策页面正在完善中。".to_string());
+                                        },
+                                        "隐私政策（Coming soon）"
+                                    }
+                                    button {
+                                        class: "block text-sm text-left hover:underline",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        onclick: move |_| {
+                                            AppState::show_info(app_state.toasts, "服务条款页面正在完善中。".to_string());
+                                        },
+                                        "服务条款（Coming soon）"
+                                    }
+                                    button {
+                                        class: "block text-sm text-left hover:underline",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        onclick: move |_| {
+                                            AppState::show_info(app_state.toasts, "联系方式即将上线。".to_string());
+                                        },
+                                        "联系我们（Coming soon）"
+                                    }
+                                }
+                            }
+                        }
+
+                        // 产品
+                        div {
+                            p { class: "text-sm font-semibold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "产品" }
+                            div { class: "space-y-3",
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        navigator.push(Route::Dashboard {});
+                                    },
+                                    "Web 钱包（IronForge）"
+                                }
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "移动端 App 功能正在开发中。".to_string());
+                                    },
+                                    "移动端 App（Coming soon）"
+                                }
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "浏览器扩展 功能正在开发中。".to_string());
+                                    },
+                                    "浏览器扩展（Coming soon）"
+                                }
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        AppState::show_info(app_state.toasts, "XR 智能眼镜 功能正在开发中。".to_string());
+                                    },
+                                    "XR 智能眼镜（Coming soon）"
+                                }
+                            }
+                        }
+
+                        // 开发者
+                        div {
+                            p { class: "text-sm font-semibold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "开发者" }
+                            div { class: "space-y-3",
+                                a {
+                                    class: "block text-sm hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    href: "https://github.com/wejfiowej124234/IronForge-V2",
+                                    target: "_blank",
+                                    rel: "noopener noreferrer",
+                                    "GitHub（前端）"
+                                }
+                                a {
+                                    class: "block text-sm hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    href: "https://github.com/wejfiowej124234/IronCore-V2",
+                                    target: "_blank",
+                                    rel: "noopener noreferrer",
+                                    "GitHub（后端）"
+                                }
+                                a {
+                                    class: "block text-sm hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    href: "https://github.com/wejfiowej124234/IronForge-V2/blob/main/docs/DEVELOPER_DOCS.md",
+                                    target: "_blank",
+                                    rel: "noopener noreferrer",
+                                    "开发者文档"
+                                }
+                            }
+                        }
+
+                        // 资源
+                        div {
+                            p { class: "text-sm font-semibold mb-4", style: format!("color: {};", Colors::TEXT_PRIMARY), "资源" }
+                            div { class: "space-y-3",
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        navigator.push(Route::Register {});
+                                    },
+                                    "注册"
+                                }
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        navigator.push(Route::Login {});
+                                    },
+                                    "登录"
+                                }
+                                button {
+                                    class: "block text-sm text-left hover:underline",
+                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                    onclick: move |_| {
+                                        navigator.push(Route::CreateWallet {});
+                                    },
+                                    "创建钱包"
+                                }
+                            }
+                        }
+                    }
+
+                    // 底部版权行
+                    div {
+                        class: "max-w-6xl mx-auto mt-10 pt-6 flex flex-col sm:flex-row gap-3 sm:gap-6 justify-between items-start sm:items-center",
+                        style: format!("border-top: 1px solid {};", Colors::BORDER_PRIMARY),
+                        p {
+                            class: "text-xs",
+                            style: format!("color: {};", Colors::TEXT_TERTIARY),
+                            "© 2025 IronForge. All rights reserved."
+                        }
+                        div { class: "flex flex-wrap gap-4",
+                            a {
+                                class: "text-xs hover:underline",
+                                style: format!("color: {};", Colors::TEXT_TERTIARY),
+                                href: "https://github.com/wejfiowej124234",
+                                target: "_blank",
+                                rel: "noopener noreferrer",
+                                "GitHub"
+                            }
+                            button {
+                                class: "text-xs hover:underline",
+                                style: format!("color: {};", Colors::TEXT_TERTIARY),
+                                onclick: move |_| {
+                                    AppState::show_info(app_state.toasts, "更多链接后续会补齐。".to_string());
+                                },
+                                "更多"
+                            }
+                        }
                     }
                 }
             }

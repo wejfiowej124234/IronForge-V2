@@ -13,5 +13,6 @@ pub mod request;
 pub mod security;
 pub mod state;
 pub mod storage;
+pub mod ui_error;
 pub mod validation;
 pub mod websocket;

@@ -57,7 +57,9 @@ pub fn WalletCreatePage() -> Element {
                     step.set(2); // 进入助记词显示步骤
                 }
                 Err(e) => {
-                    error.set(Some(format!("创建失败: {}", e)));
+                    error.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("创建失败: {}", e),
+                    )));
                 }
             }
             

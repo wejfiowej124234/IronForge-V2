@@ -123,7 +123,10 @@ pub fn Send() -> Element {
                     detected_chain.set(None);
                     if addr.len() > 5 {
                         // 只有地址足够长时才显示错误
-                        error_message.set(Some(format!("无法识别地址格式: {}", e)));
+                        #[cfg(debug_assertions)]
+                        tracing::debug!("address_detect_error={}", e);
+
+                        error_message.set(Some("无法识别地址格式，请检查后重试".to_string()));
                     }
                 }
             }
@@ -530,7 +533,11 @@ pub fn Send() -> Element {
                                                 nav.push(Route::Dashboard {});
                                             }
                                             Err(e) => {
-                                                err.set(Some(format!("发送失败: {}", e)));
+                                                err.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("发送失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading.set(false);
                                             }
                                         }
@@ -552,7 +559,11 @@ pub fn Send() -> Element {
                                                 nav.push(Route::Dashboard {});
                                             }
                                             Err(e) => {
-                                                err.set(Some(format!("跨链转账失败: {}", e)));
+                                                err.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("跨链转账失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading.set(false);
                                             }
                                         }

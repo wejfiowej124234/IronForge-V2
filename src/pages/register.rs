@@ -14,9 +14,55 @@ use crate::components::molecules::ErrorMessage;
 use crate::features::auth::hooks::use_auth;
 use crate::router::Route;
 use crate::shared::design_tokens::Colors;
+use crate::shared::error::{ApiError, AppError};
 use crate::shared::state::AppState;
 use dioxus::events::FormEvent;
 use dioxus::prelude::*;
+
+fn friendly_register_error(err: &anyhow::Error) -> String {
+    if let Some(app_err) = err.downcast_ref::<AppError>() {
+        match app_err {
+            AppError::Api(ApiError::Timeout) => "请求超时，请稍后再试".to_string(),
+            AppError::Api(ApiError::RequestFailed(_)) => {
+                "无法连接服务器，请检查网络或稍后再试".to_string()
+            }
+            // 注册场景通常不会是 Unauthorized，这里给一个保守提示
+            AppError::Api(ApiError::Unauthorized) => "注册失败，请稍后再试".to_string(),
+            AppError::Api(ApiError::ResponseError(msg)) => {
+                let lower = msg.to_lowercase();
+                if lower.contains("already")
+                    || lower.contains("exists")
+                    || lower.contains("duplicate")
+                    || lower.contains("conflict")
+                    || lower.contains("409")
+                {
+                    "该邮箱已注册，请直接登录".to_string()
+                } else if lower.contains("match") && lower.contains("password") {
+                    "两次输入的密码不一致".to_string()
+                } else {
+                    "注册失败，请稍后再试".to_string()
+                }
+            }
+            _ => "注册失败，请稍后再试".to_string(),
+        }
+    } else {
+        let msg = err.to_string().to_lowercase();
+        if msg.contains("timeout") {
+            "请求超时，请稍后再试".to_string()
+        } else if msg.contains("network") || msg.contains("connection") || msg.contains("request failed") {
+            "无法连接服务器，请检查网络或稍后再试".to_string()
+        } else if msg.contains("already")
+            || msg.contains("exists")
+            || msg.contains("duplicate")
+            || msg.contains("conflict")
+            || msg.contains("409")
+        {
+            "该邮箱已注册，请直接登录".to_string()
+        } else {
+            "注册失败，请稍后再试".to_string()
+        }
+    }
+}
 
 /// Register Page - 注册页面
 #[component]
@@ -79,7 +125,12 @@ pub fn Register() -> Element {
                     }
                     Err(e) => {
                         loading.set(false);
-                        let err_msg = format!("注册失败: {}", e);
+                        let err_msg = friendly_register_error(&e);
+                        #[cfg(debug_assertions)]
+                        {
+                            use tracing::warn;
+                            warn!("Register failed (raw): {:#}", e);
+                        }
                         AppState::show_error(app_state.toasts, err_msg.clone());
                         error.set(Some(err_msg));
                     }

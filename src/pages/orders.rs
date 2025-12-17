@@ -194,7 +194,9 @@ pub fn Orders() -> Element {
                     }
                     Err(e) => {
                         tracing::error!("Failed to load onramp orders: {}", e);
-                        error_sig.set(Some(format!("加载充值订单失败: {}", e)));
+                        error_sig.set(Some(crate::shared::ui_error::sanitize_user_message(
+                            format!("加载充值订单失败: {}", e),
+                        )));
                     }
                 }
 
@@ -242,7 +244,9 @@ pub fn Orders() -> Element {
                     }
                     Err(e) => {
                         tracing::error!("Failed to load offramp orders: {}", e);
-                        error_sig.set(Some(format!("加载提现订单失败: {}", e)));
+                        error_sig.set(Some(crate::shared::ui_error::sanitize_user_message(
+                            format!("加载提现订单失败: {}", e),
+                        )));
                     }
                 }
 

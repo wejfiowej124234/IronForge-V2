@@ -14,9 +14,39 @@ use crate::components::molecules::ErrorMessage;
 use crate::features::auth::hooks::use_auth;
 use crate::router::Route;
 use crate::shared::design_tokens::Colors;
+use crate::shared::error::{ApiError, AppError};
 use crate::shared::state::AppState;
 use dioxus::events::FormEvent;
 use dioxus::prelude::*;
+
+fn friendly_login_error(err: &anyhow::Error) -> String {
+    // 优先基于强类型错误做映射（比字符串 contains 更稳定）
+    if let Some(app_err) = err.downcast_ref::<AppError>() {
+        match app_err {
+            AppError::Api(ApiError::Unauthorized) => {
+                "邮箱或密码错误，或账号未注册".to_string()
+            }
+            AppError::Api(ApiError::Timeout) => "请求超时，请稍后再试".to_string(),
+            AppError::Api(ApiError::RequestFailed(_)) => {
+                "无法连接服务器，请检查网络或稍后再试".to_string()
+            }
+            AppError::Api(ApiError::ResponseError(_)) => "登录失败，请稍后再试".to_string(),
+            _ => "登录失败，请稍后再试".to_string(),
+        }
+    } else {
+        // 兜底：兼容 anyhow 链路里不落 AppError 的情况
+        let msg = err.to_string().to_lowercase();
+        if msg.contains("unauthorized") || msg.contains("401") {
+            "邮箱或密码错误，或账号未注册".to_string()
+        } else if msg.contains("timeout") {
+            "请求超时，请稍后再试".to_string()
+        } else if msg.contains("network") || msg.contains("connection") || msg.contains("request failed") {
+            "无法连接服务器，请检查网络或稍后再试".to_string()
+        } else {
+            "登录失败，请稍后再试".to_string()
+        }
+    }
+}
 
 /// Login Page - 登录页面
 #[component]
@@ -71,7 +101,12 @@ pub fn Login() -> Element {
                     }
                     Err(e) => {
                         loading.set(false);
-                        let err_msg = format!("登录失败: {}", e);
+                        let err_msg = friendly_login_error(&e);
+                        #[cfg(debug_assertions)]
+                        {
+                            use tracing::warn;
+                            warn!("Login failed (raw): {:#}", e);
+                        }
                         AppState::show_error(app_state.toasts, err_msg.clone());
                         error.set(Some(err_msg));
                     }

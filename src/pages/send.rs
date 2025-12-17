@@ -730,7 +730,11 @@ pub fn Send() -> Element {
                 Err(e) => {
                     detected_chain_mut.set(None);
                     if addr.len() > 5 {
-                        address_validation_error_mut.set(Some(format!("地址格式无效: {}", e)));
+                        #[cfg(debug_assertions)]
+                        tracing::debug!("address_detect_error={}", e);
+
+                        address_validation_error_mut
+                            .set(Some("地址格式无效，请检查后重试".to_string()));
                     } else {
                         address_validation_error_mut.set(None);
                     }
@@ -771,7 +775,12 @@ pub fn Send() -> Element {
                                 fee_calculating_clone.set(false);
                             }
                             Err(e) => {
-                                error_message_clone.set(Some(format!("计算Gas费用失败: {}", e)));
+                                error_message_clone.set(Some(
+                                    crate::shared::ui_error::sanitize_user_message(format!(
+                                        "计算Gas费用失败: {}",
+                                        e
+                                    )),
+                                ));
                                 fee_calculating_clone.set(false);
                             }
                         }
@@ -1241,7 +1250,11 @@ pub fn Send() -> Element {
                                                 nav_clone.push(Route::Dashboard {});
                                             }
                                             Err(e) => {
-                                                err_clone.set(Some(format!("发送失败: {}", e)));
+                                                err_clone.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("发送失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading_clone.set(false);
                                             }
                                         }
@@ -1285,7 +1298,11 @@ pub fn Send() -> Element {
                                                 nav_clone.push(Route::Dashboard {});
                                             }
                                             Err(e) => {
-                                                err_clone.set(Some(format!("跨链转账失败: {}", e)));
+                                                err_clone.set(Some(
+                                                    crate::shared::ui_error::sanitize_user_message(
+                                                        format!("跨链转账失败: {}", e),
+                                                    ),
+                                                ));
                                                 loading_clone.set(false);
                                             }
                                         }
