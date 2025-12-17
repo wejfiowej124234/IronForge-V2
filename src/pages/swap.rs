@@ -1110,8 +1110,7 @@ fn SwapTabContent(
                                 #[cfg(debug_assertions)]
                                 log::debug!("balance_check_error={}", e);
 
-                                err_sig_for_check
-                                    .set(Some("无法获取余额，请稍后重试".to_string()));
+                                err_sig_for_check.set(Some("无法获取余额，请稍后重试".to_string()));
                             }
                         }
                     });

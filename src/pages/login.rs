@@ -23,9 +23,7 @@ fn friendly_login_error(err: &anyhow::Error) -> String {
     // 优先基于强类型错误做映射（比字符串 contains 更稳定）
     if let Some(app_err) = err.downcast_ref::<AppError>() {
         match app_err {
-            AppError::Api(ApiError::Unauthorized) => {
-                "邮箱或密码错误，或账号未注册".to_string()
-            }
+            AppError::Api(ApiError::Unauthorized) => "邮箱或密码错误，或账号未注册".to_string(),
             AppError::Api(ApiError::Timeout) => "请求超时，请稍后再试".to_string(),
             AppError::Api(ApiError::RequestFailed(_)) => {
                 "无法连接服务器，请检查网络或稍后再试".to_string()
@@ -40,7 +38,10 @@ fn friendly_login_error(err: &anyhow::Error) -> String {
             "邮箱或密码错误，或账号未注册".to_string()
         } else if msg.contains("timeout") {
             "请求超时，请稍后再试".to_string()
-        } else if msg.contains("network") || msg.contains("connection") || msg.contains("request failed") {
+        } else if msg.contains("network")
+            || msg.contains("connection")
+            || msg.contains("request failed")
+        {
             "无法连接服务器，请检查网络或稍后再试".to_string()
         } else {
             "登录失败，请稍后再试".to_string()

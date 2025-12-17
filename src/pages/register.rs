@@ -49,7 +49,10 @@ fn friendly_register_error(err: &anyhow::Error) -> String {
         let msg = err.to_string().to_lowercase();
         if msg.contains("timeout") {
             "请求超时，请稍后再试".to_string()
-        } else if msg.contains("network") || msg.contains("connection") || msg.contains("request failed") {
+        } else if msg.contains("network")
+            || msg.contains("connection")
+            || msg.contains("request failed")
+        {
             "无法连接服务器，请检查网络或稍后再试".to_string()
         } else if msg.contains("already")
             || msg.contains("exists")

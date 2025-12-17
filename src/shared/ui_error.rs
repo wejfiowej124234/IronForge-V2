@@ -91,7 +91,7 @@ fn extract_prefix(message: &str) -> (Cow<'_, str>, bool) {
         }
     }
 
-    (Cow::Borrowed(message.as_ref()), false)
+    (Cow::Borrowed(message), false)
 }
 
 fn is_auth_error(lower: &str) -> bool {
