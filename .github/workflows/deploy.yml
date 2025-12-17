@@ -110,6 +110,17 @@ jobs:
           publish_dir: ./dist
           # NOTE: Custom domain intentionally omitted. If you want one, configure DNS + HTTPS first,
           # then re-add `cname:` or drive it via a repo variable.
+
+      - name: Fly.io deploy notice
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.FLY_API_TOKEN }}" ]; then
+            echo "FLY_API_TOKEN is not set; Fly.io deploy job will be skipped."
+            echo "Set it in: Settings → Secrets and variables → Actions → Secrets → FLY_API_TOKEN"
+          else
+            echo "FLY_API_TOKEN is set; Fly.io deploy job should run."
+          fi
       
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -190,7 +201,7 @@ jobs:
     name: Deploy to Fly.io
     runs-on: ubuntu-latest
     needs: gates
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.FLY_API_TOKEN != ''
     permissions:
       contents: read
     steps:
