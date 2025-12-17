@@ -4,6 +4,13 @@
 > **版本**: V2.0  
 > **更新日期**: 2025-11-25
 
+## ✅ 当前仓库的实际部署方式（请以此为准）
+
+- Fly.io：使用 `fly.toml` + `Dockerfile` 部署到 Fly App（例如：`oxidevault-ironforge-v2`）
+- GitHub Actions：使用 `.github/workflows/deploy.yml` 在 `main` 分支自动发布
+
+本文档的 Kubernetes / CDN / 灾难恢复章节为通用生产方案参考；如果只需要复现当前仓库部署，请优先阅读上述三个文件。
+
 ---
 
 ## 📋 目录

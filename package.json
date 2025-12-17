@@ -9,15 +9,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wejfiowej124234/IronForge.git"
+    "url": "git+https://github.com/wejfiowej124234/IronForge-V2.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/wejfiowej124234/IronForge/issues"
+    "url": "https://github.com/wejfiowej124234/IronForge-V2/issues"
   },
-  "homepage": "https://github.com/wejfiowej124234/IronForge#readme",
+  "homepage": "https://github.com/wejfiowej124234/IronForge-V2#readme",
   "description": "",
   "devDependencies": {
     "autoprefixer": "^10.4.22",

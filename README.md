@@ -3,7 +3,7 @@
 > 🚀 **版本**: 2.0  
 > 📅 **最后更新**: 2025-12-06  
 > 🎯 **目标**: 构建下一代企业级 Web3 钱包前端  
-> 🌐 **i18n**: 4 languages, 540+ translations ✅  
+> 🌐 **i18n**: 4+ languages (see docs) ✅  
 > 📚 **Documentation**: 57 files, 27,437 lines, 12 README indexes ⭐
 
 ---
@@ -46,7 +46,7 @@ IronForge 是一个基于 Rust + Dioxus 构建的企业级 Web3 钱包前端应�
 - 🔐 **安全第一**: 零信任架构，内存安全保证，完善的密钥管理
 - ⚡ **高性能**: WASM 优化，虚拟滚动，智能缓存
 - 🎨 **现代 UI**: 苹果风格设计系统，毛玻璃效果，流畅动画
-- 🌍 **国际化**: 支持 7 种语言（🇺🇸 🇪🇸 🇫🇷 🇨🇳 🇹🇼 🇯🇵 🇰🇷）
+- 🌍 **国际化**: 支持多语言（以 `docs/02-technical-design/` 的 i18n 文档为准）
 - 📱 **响应式**: Mobile-First 设计，完美适配各种设备
 
 ---
@@ -55,9 +55,9 @@ IronForge 是一个基于 Rust + Dioxus 构建的企业级 Web3 钱包前端应�
 
 ### 环境要求
 
-- Rust 1.70+ (推荐使用 rustup)
-- Node.js 18+ (用于 Tailwind CSS)
-- Trunk (WASM 构建工具)
+- Rust stable (推荐使用 rustup)
+- Node.js 20+（用于 Tailwind CSS；CI 使用 Node 20）
+- Trunk 0.21.14（CI 固定版本；建议保持一致）
 
 ### 安装依赖
 
@@ -66,13 +66,14 @@ IronForge 是一个基于 Rust + Dioxus 构建的企业级 Web3 钱包前端应�
 cargo build
 
 # 安装 Node.js 依赖
-npm install
+npm ci
 ```
 
 ### 开发模式
 
 ```bash
 # 启动开发服务器（自动热重载）
+# 说明：Trunk build hook 会自动执行 `npm run build:css`
 trunk serve
 
 # 监听 Tailwind CSS 变化
@@ -88,6 +89,26 @@ trunk build --release
 # 构建 CSS
 npm run build:css
 ```
+
+---
+
+## 🚀 生产部署（当前实现）
+
+本仓库已接入 GitHub Actions 自动部署：
+
+- GitHub Pages：push 到 `main` 会发布 `dist/`
+- Fly.io：push 到 `main` 会通过 `flyctl deploy` 部署到 `oxidevault-ironforge-v2`
+
+### 必要配置
+
+- `FLY_API_TOKEN`：GitHub 仓库 Actions Secret（必需；缺失会导致 Fly 部署失败）
+- `API_BASE_URL`：可选 GitHub Actions Variable（用于编译期注入后端 API Base URL）
+
+相关文件：
+
+- `.github/workflows/deploy.yml`
+- `fly.toml`
+- `Dockerfile`
 
 ---
 
@@ -116,8 +137,7 @@ npm run build:css
 2. **[监控告警](./docs/06-production/04-monitoring-setup.md)** - Prometheus + Grafana
 3. **[部署指南](./docs/06-production/05-deployment-guide.md)** - Docker + K8s 部署
 4. **[日志系统](./docs/06-production/03-logging-system.md)** - 结构化日志
-- [🌍 Logo 设计](./docs-v2/05-ui-ux/LOGO_DESIGN.md) - Logo设计规范
-- [🔐 安全架构](./docs-v2/04-security/03-security-architecture.md) - 安全设计文档
+
 
 ---
 
@@ -133,7 +153,7 @@ IronForge/
 │   ├── shared/            # 共享工具与状态
 │   ├── crypto/            # 加密与密钥管理
 │   └── archive/           # 旧UI代码备份
-├── docs-v2/               # 📚 完整文档目录
+├── docs/                  # 📚 完整文档目录
 ├── scripts/               # 脚本文件
 ├── public/                # 静态资源
 └── Cargo.toml            # Rust 依赖配置
@@ -198,8 +218,8 @@ IronForge/
 
 ## 📞 联系方式
 
-- **问题反馈**: [GitHub Issues](https://github.com/wejfiowej124234/IronForge/issues)
-- **项目文档**: [docs-v2/README.md](./docs-v2/README.md)
+- **问题反馈**: [GitHub Issues](https://github.com/wejfiowej124234/IronForge-V2/issues)
+- **项目文档**: [📖 Documentation Hub](./docs/INDEX.md)
 
 ---
 
