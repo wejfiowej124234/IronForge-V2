@@ -32,6 +32,72 @@ pub struct GasEstimateResponse {
     pub fast: GasEstimate,
 }
 
+/// Pure helper: pick an estimate by speed from an aggregate response.
+pub fn pick_estimate<'a>(all: &'a GasEstimateResponse, speed: GasSpeed) -> &'a GasEstimate {
+    match speed {
+        GasSpeed::Slow => &all.slow,
+        GasSpeed::Average => &all.average,
+        GasSpeed::Fast => &all.fast,
+    }
+}
+
+/// Pure helper: compute a max-fee-per-gas based gas cost in ETH.
+///
+/// - `max_fee_per_gas_gwei`: gwei / gas
+/// - `gas_limit`: gas
+///
+/// Returns ETH (gwei * gas / 1e9).
+pub fn gas_fee_eth_from_max_fee_per_gas_gwei(max_fee_per_gas_gwei: f64, gas_limit: u64) -> f64 {
+    if !max_fee_per_gas_gwei.is_finite() || max_fee_per_gas_gwei < 0.0 {
+        return 0.0;
+    }
+    (max_fee_per_gas_gwei * gas_limit as f64) / 1e9
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_est(gwei: f64, secs: u64) -> GasEstimate {
+        GasEstimate {
+            base_fee: "0x0".to_string(),
+            max_priority_fee: "0x0".to_string(),
+            max_fee_per_gas: "0x0".to_string(),
+            estimated_time_seconds: secs,
+            base_fee_gwei: 0.0,
+            max_priority_fee_gwei: 0.0,
+            max_fee_per_gas_gwei: gwei,
+        }
+    }
+
+    #[test]
+    fn gas_fee_eth_changes_with_gwei() {
+        let slow = gas_fee_eth_from_max_fee_per_gas_gwei(1.0, 21_000);
+        let fast = gas_fee_eth_from_max_fee_per_gas_gwei(2.0, 21_000);
+        assert!(fast > slow);
+    }
+
+    #[test]
+    fn gas_fee_eth_invalid_values_are_zero() {
+        assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(-1.0, 21_000), 0.0);
+        assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(f64::NAN, 21_000), 0.0);
+        assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(f64::INFINITY, 21_000), 0.0);
+    }
+
+    #[test]
+    fn pick_estimate_selects_expected_tier() {
+        let all = GasEstimateResponse {
+            slow: dummy_est(1.0, 300),
+            average: dummy_est(2.0, 180),
+            fast: dummy_est(3.0, 60),
+        };
+
+        assert_eq!(pick_estimate(&all, GasSpeed::Slow).max_fee_per_gas_gwei, 1.0);
+        assert_eq!(pick_estimate(&all, GasSpeed::Average).max_fee_per_gas_gwei, 2.0);
+        assert_eq!(pick_estimate(&all, GasSpeed::Fast).max_fee_per_gas_gwei, 3.0);
+    }
+}
+
 // ApiResponse 已移除，直接使用 GasEstimateResponse
 // deserialize 方法已自动提取 data 字段
 
@@ -82,12 +148,7 @@ impl GasService {
     #[allow(dead_code)]
     pub async fn estimate(&self, chain: &str, speed: GasSpeed) -> Result<GasEstimate, AppError> {
         let all = self.estimate_all(chain).await?;
-        let estimate = match speed {
-            GasSpeed::Slow => all.slow,
-            GasSpeed::Average => all.average,
-            GasSpeed::Fast => all.fast,
-        };
-        Ok(estimate)
+        Ok(pick_estimate(&all, speed).clone())
     }
 
     /// 获取后端自动推荐的最优Gas费（使用average作为默认推荐）

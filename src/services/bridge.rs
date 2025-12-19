@@ -1,41 +1,96 @@
 //! Bridge Service - 跨链桥接服务
-//! 集成后端跨链兑换API (/api/swap/cross-chain)
-//! 生产级实现，包含历史查询、状态轮询等功能
+//!
+//! ✅ 对齐后端 v1 Bridge API：
+//! - POST /api/v1/bridge/execute
+//! - GET  /api/v1/bridge/:id/status
+//! - GET  /api/v1/bridge/history
 
+use crate::crypto::tx_signer::EthereumTxSigner;
+use crate::features::wallet::unlock::ensure_wallet_unlocked;
+use crate::services::address_detector::ChainType;
+use crate::services::chain_config::ChainConfigManager;
+use crate::services::gas_limit::GasLimitService;
 use crate::services::transaction::TransactionService;
 use crate::shared::api::ApiClient;
+use crate::shared::api_endpoints;
 use crate::shared::state::AppState;
+use anyhow::anyhow;
+use dioxus::prelude::ReadableExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// 跨链桥接请求（适配后端CrossChainSwapRequest）
+/// 后端桥接费用信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BridgeRequest {
-    pub source_chain: String, // 源链：ethereum, bsc, polygon
-    pub source_token: String, // 源代币：ETH, BNB, MATIC
-    pub source_amount: f64,   // 源数量
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub source_wallet_id: String, // 源钱包ID（可选，后端会自动查找）
-    pub target_chain: String, // 目标链：sol, avax, polygon
-    pub target_token: String, // 目标代币：SOL, AVAX, MATIC
-    #[serde(default, skip_serializing_if = "String::is_empty")]
-    pub target_wallet_id: String, // 目标钱包ID（可选）
+pub struct BridgeFeeInfo {
+    pub bridge_fee_usd: f64,
+    pub source_gas_fee_usd: f64,
+    pub destination_gas_fee_usd: f64,
+    pub total_fee_usd: f64,
 }
 
-/// 跨链桥接响应（适配后端CrossChainSwapResponse）
+/// 后端桥接执行响应（/api/v1/bridge/execute）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeResponse {
-    pub swap_id: String,                   // 交换ID（原bridge_id）
-    pub status: String,                    // pending, processing, completed, failed
-    pub source_amount: f64,                // 源数量
-    pub estimated_target_amount: f64,      // 预估目标数量
-    pub actual_target_amount: Option<f64>, // 实际目标数量（完成后）
-    pub exchange_rate: f64,                // 汇率
-    pub fee_usdt: f64,                     // 手续费（USDT）
-    pub bridge_protocol: String,           // 桥协议：wormhole, layerzero
-    pub estimated_time_minutes: u32,       // 预估时间（分钟）
-    pub created_at: String,                // 创建时间
-    pub completed_at: Option<String>,      // 完成时间
+    pub bridge_id: String,
+    pub status: String,
+    pub source_chain: String,
+    pub destination_chain: String,
+    pub amount: String,
+    pub estimated_arrival_time: String,
+    pub fee_info: BridgeFeeInfo,
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Route-based quote (Phase A)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BridgeRouteQuoteRequest {
+    from_chain: String,
+    to_chain: String,
+    token: String,
+    amount: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    destination_address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_address: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BridgeRouteQuoteResponse {
+    bridge_fee: f64,
+    source_gas_fee: Option<f64>,
+    target_gas_fee: Option<f64>,
+    bridge_protocol: String,
+    estimated_time_seconds: Option<u64>,
+    route: BridgeRoute,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BridgeRoute {
+    provider: String,
+    source_chain: String,
+    destination_chain: String,
+    token_symbol: String,
+    amount: String,
+    message_fee_wei: String,
+    steps: Vec<BridgeRouteStep>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct BridgeRouteStep {
+    kind: String,
+    chain: String,
+    to: String,
+    value_wei: String,
+    data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SignedRouteStep {
+    kind: String,
+    chain: String,
+    signed_tx: String,
 }
 
 /// Bridge报价（用于兼容旧代码，实际使用SwapQuote）
@@ -51,36 +106,65 @@ pub struct BridgeQuote {
     pub steps: u32,
 }
 
-/// Bridge历史记录
+/// Bridge历史记录（/api/v1/bridge/history）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeHistoryItem {
-    pub swap_id: String,                   // 交换ID
-    pub source_chain: String,              // 源链
-    pub target_chain: String,              // 目标链
-    pub source_token: String,              // 源代币
-    pub target_token: String,              // 目标代币
-    pub source_amount: f64,                // 源数量
-    pub estimated_target_amount: f64,      // 预估目标数量
-    pub actual_target_amount: Option<f64>, // 实际目标数量
-    pub status: String,                    // pending, processing, completed, failed
-    pub fee_usdt: f64,                     // 手续费
-    pub bridge_protocol: String,           // 桥协议
-    pub created_at: String,                // 创建时间
-    pub completed_at: Option<String>,      // 完成时间
+    pub bridge_id: String,
+    pub status: String,
+    pub source_chain: String,
+    pub source_address: String,
+    pub destination_chain: String,
+    pub destination_address: String,
+    pub token_symbol: String,
+    pub amount: String,
+    pub bridge_provider: Option<String>,
+    pub fee_paid_usd: Option<f64>,
+    pub source_tx_hash: Option<String>,
+    pub destination_tx_hash: Option<String>,
+    pub created_at: String,
+    pub updated_at: Option<String>,
 }
 
 /// Bridge历史响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeHistoryResponse {
     pub bridges: Vec<BridgeHistoryItem>,
-    pub total: usize,
-    pub page: usize,
-    pub page_size: usize,
+    pub total: i64,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+/// Bridge状态响应（/api/v1/bridge/:id/status）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeStatusResponse {
+    pub bridge_id: String,
+    pub status: String,
+    pub source_tx_hash: Option<String>,
+    pub source_confirmations: u32,
+    pub destination_tx_hash: Option<String>,
+    pub destination_confirmations: u32,
+    pub progress_percentage: u8,
+    pub estimated_completion_time: Option<String>,
+
+    /// Phase A: route-based execution hashes
+    #[serde(default)]
+    pub approve_tx_hash: Option<String>,
+    #[serde(default)]
+    pub swap_tx_hash: Option<String>,
+    #[serde(default)]
+    pub route_step_hashes: Option<Vec<RouteStepHash>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteStepHash {
+    pub kind: String,
+    pub tx_hash: String,
 }
 
 /// Bridge服务
 #[derive(Clone)]
 pub struct BridgeService {
+    app_state: AppState,
     api_client: Arc<ApiClient>,
     transaction_service: TransactionService,
 }
@@ -88,9 +172,48 @@ pub struct BridgeService {
 impl BridgeService {
     pub fn new(app_state: AppState) -> Self {
         Self {
+            app_state,
             api_client: Arc::new(app_state.get_api_client()),
             transaction_service: TransactionService::new(app_state),
         }
+    }
+
+    fn parse_amount_to_wei_u128(amount: &str) -> Result<u128, String> {
+        // 字符串到 wei（18 decimals），避免f64精度问题
+        let s = amount.trim();
+        if s.is_empty() {
+            return Err("amount is empty".to_string());
+        }
+
+        let mut parts = s.split('.');
+        let int_part = parts.next().unwrap_or("0");
+        let frac_part = parts.next().unwrap_or("0");
+        if parts.next().is_some() {
+            return Err("invalid amount format".to_string());
+        }
+
+        let int_u128 = int_part
+            .parse::<u128>()
+            .map_err(|_| "invalid integer part".to_string())?;
+
+        let mut frac = frac_part.to_string();
+        if frac.len() > 18 {
+            frac.truncate(18);
+        }
+        while frac.len() < 18 {
+            frac.push('0');
+        }
+        let frac_u128 = if frac.is_empty() {
+            0u128
+        } else {
+            frac.parse::<u128>()
+                .map_err(|_| "invalid fractional part".to_string())?
+        };
+
+        Ok(int_u128
+            .checked_mul(1_000_000_000_000_000_000u128)
+            .and_then(|x| x.checked_add(frac_u128))
+            .ok_or_else(|| "amount overflow".to_string())?)
     }
 
     /// 执行跨链桥接✅使用统一端点
@@ -102,142 +225,322 @@ impl BridgeService {
         token: &str,
         amount: &str,
     ) -> Result<BridgeResponse, String> {
-        use serde::{Deserialize, Serialize};
+        // 1) 钱包锁检查
+        ensure_wallet_unlocked(&self.app_state, from_wallet)
+            .map_err(|e| format!("Wallet locked: {}", e))?;
 
-        // 后端API请求格式（对齐 IronCore/src/api/types.rs）
+        // 2) 获取选中钱包与源/目标账户
+        let wallet_state = self.app_state.wallet.read();
+        let wallet = wallet_state
+            .get_wallet(from_wallet)
+            .ok_or_else(|| "Wallet not found".to_string())?;
+
+        let source_account_index = wallet
+            .accounts
+            .iter()
+            .position(|a| a.chain.eq_ignore_ascii_case(from_chain))
+            .ok_or_else(|| format!("No source account for chain {}", from_chain))?;
+
+        let source_account = &wallet.accounts[source_account_index];
+
+        let destination_account = wallet
+            .accounts
+            .iter()
+            .find(|a| a.chain.eq_ignore_ascii_case(to_chain))
+            .ok_or_else(|| format!("No destination account for chain {}", to_chain))?;
+
+        // 3) 当前仅支持 EVM->EVM（签名与广播）
+        let from_chain_type = ChainType::from_str(from_chain)
+            .ok_or_else(|| format!("Unsupported source chain: {}", from_chain))?;
+        let to_chain_type = ChainType::from_str(to_chain)
+            .ok_or_else(|| format!("Unsupported destination chain: {}", to_chain))?;
+
+        let is_evm = matches!(
+            from_chain_type,
+            ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
+        ) && matches!(to_chain_type, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon);
+
+        if !is_evm {
+            return Err(
+                "Bridge currently supports EVM↔EVM only (ethereum/bsc/polygon)".to_string(),
+            );
+        }
+
+        // 4) 构建并签名一笔源链原生代币转账（真实链上交互）
+        // 注意：这里默认发送到目标链同钱包地址（同一私钥在不同EVM链地址相同），
+        // 作为跨链桥执行的最小真实链交互载体。
+        let cfg = ChainConfigManager::new();
+        let chain_id = cfg
+            .get_chain_id(from_chain_type)
+            .map_err(|e| format!("Failed to get chain_id: {}", e))?;
+
+        let nonce = self
+            .transaction_service
+            .get_nonce(&source_account.address, chain_id)
+            .await
+            .map_err(|e| format!("Failed to get nonce: {}", e))?;
+
+        let gas_limit_service = GasLimitService::new(self.app_state);
+        let gas_est = gas_limit_service
+            .estimate_full(
+                chain_id,
+                &source_account.address,
+                &destination_account.address,
+                amount,
+                None,
+            )
+            .await
+            .map_err(|e| format!("Failed to estimate gas: {}", e))?;
+
+        let gas_price = gas_est
+            .gas_price
+            .parse::<u64>()
+            .map_err(|_| format!("Invalid gas_price returned: {}", gas_est.gas_price))?;
+
+        let value_wei = Self::parse_amount_to_wei_u128(amount)?;
+
+        // 派生私钥
+        let key_manager = self
+            .app_state
+            .key_manager
+            .read()
+            .clone()
+            .ok_or_else(|| "Wallet not unlocked (missing key manager)".to_string())?;
+
+        let private_key_hex = key_manager
+            .derive_eth_private_key(source_account_index as u32)
+            .map_err(|e| format!("Failed to derive private key: {}", e))?;
+
+        let signed_tx = EthereumTxSigner::sign_transaction(
+            &private_key_hex,
+            &destination_account.address,
+            &value_wei.to_string(),
+            nonce,
+            gas_price,
+            gas_est.gas_limit,
+            chain_id,
+        )
+        .map_err(|e| format!("Failed to sign tx: {}", e))?;
+
+        // 5) 调用后端 Bridge Execute
         #[derive(Debug, Serialize)]
-        struct BridgeAssetsRequest {
-            from_wallet: String,
-            from_chain: String,
-            to_chain: String,
-            token: String,
+        struct ExecuteBridgeRequest {
+            source_chain: String,
+            source_address: String,
+            destination_chain: String,
+            destination_address: String,
+            token_symbol: String,
             amount: String,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            client_request_id: Option<String>,
+            signed_source_tx: String,
+            bridge_provider: Option<String>,
+            idempotency_key: Option<String>,
         }
 
-        // 后端API响应格式（对齐后端CrossChainSwapResponse）
-        #[derive(Debug, Deserialize)]
-        struct BridgeAssetsResponse {
-            #[serde(alias = "bridge_id", alias = "swap_id")]
-            swap_id: String,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            bridge_tx_id: Option<String>,
-            status: String,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            target_chain: Option<String>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            amount: Option<String>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            from_chain: Option<String>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            token: Option<String>,
-            // 企业级实现：从后端响应获取费用和汇率信息
-            #[serde(skip_serializing_if = "Option::is_none")]
-            estimated_target_amount: Option<f64>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            exchange_rate: Option<f64>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            fee_usdt: Option<f64>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            bridge_protocol: Option<String>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            estimated_time_minutes: Option<u32>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            created_at: Option<String>,
+        let request = ExecuteBridgeRequest {
+            source_chain: from_chain.to_string(),
+            source_address: source_account.address.clone(),
+            destination_chain: to_chain.to_string(),
+            destination_address: destination_account.address.clone(),
+            token_symbol: token.to_string(),
+            amount: amount.to_string(),
+            signed_source_tx: signed_tx,
+            bridge_provider: None,
+            idempotency_key: None,
+        };
+
+        let response: BridgeResponse = self
+            .api_client
+            .post(api_endpoints::bridge::EXECUTE, &request)
+            .await
+            .map_err(|e| format!("Failed to execute bridge: {}", e))?;
+
+        Ok(response)
+    }
+
+    /// 执行跨链桥接：允许指定目标链的外部 destination_address。
+    ///
+    /// - 仍然只支持 EVM↔EVM（ethereum/bsc/polygon）。
+    /// - signed_source_tx 仍使用“源链自转/同钱包地址”作为最小真实链上交互载体，
+    ///   但后端会以 request.destination_address 作为目标链最终收款地址。
+    pub async fn bridge_assets_to_address(
+        &self,
+        from_wallet: &str,
+        from_chain: &str,
+        to_chain: &str,
+        token: &str,
+        amount: &str,
+        destination_address: &str,
+    ) -> Result<BridgeResponse, String> {
+        // 1) 钱包锁检查
+        ensure_wallet_unlocked(&self.app_state, from_wallet)
+            .map_err(|e| format!("Wallet locked: {}", e))?;
+
+        // 2) 获取选中钱包与源账户
+        let wallet_state = self.app_state.wallet.read();
+        let wallet = wallet_state
+            .get_wallet(from_wallet)
+            .ok_or_else(|| "Wallet not found".to_string())?;
+
+        let source_account_index = wallet
+            .accounts
+            .iter()
+            .position(|a| a.chain.eq_ignore_ascii_case(from_chain))
+            .ok_or_else(|| format!("No source account for chain {}", from_chain))?;
+
+        let source_account = &wallet.accounts[source_account_index];
+
+        // 3) 当前仅支持 EVM->EVM（签名与广播）
+        let from_chain_type = ChainType::from_str(from_chain)
+            .ok_or_else(|| format!("Unsupported source chain: {}", from_chain))?;
+        let to_chain_type = ChainType::from_str(to_chain)
+            .ok_or_else(|| format!("Unsupported destination chain: {}", to_chain))?;
+
+        let is_evm = matches!(
+            from_chain_type,
+            ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
+        ) && matches!(to_chain_type, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon);
+
+        if !is_evm {
+            return Err(
+                "Bridge currently supports EVM↔EVM only (ethereum/bsc/polygon)".to_string(),
+            );
         }
 
-        // 构建请求
-        let request = BridgeAssetsRequest {
-            from_wallet: from_wallet.to_string(),
+        // 4) Phase A: 先从后端获取 route-based quote（approve + swap steps）
+        let cfg = ChainConfigManager::new();
+        let chain_id = cfg
+            .get_chain_id(from_chain_type)
+            .map_err(|e| format!("Failed to get chain_id: {}", e))?;
+
+        let amount_f64 = amount
+            .parse::<f64>()
+            .map_err(|_| "Invalid amount".to_string())?;
+
+        let quote_req = BridgeRouteQuoteRequest {
             from_chain: from_chain.to_string(),
             to_chain: to_chain.to_string(),
             token: token.to_string(),
-            amount: amount.to_string(),
-            client_request_id: None, // 可选，用于幂等性
+            amount: amount_f64,
+            destination_address: Some(destination_address.to_string()),
+            source_address: Some(source_account.address.clone()),
         };
 
-        // ✅ v1标准端点
-        let response: BridgeAssetsResponse = self
+        let quote: BridgeRouteQuoteResponse = self
             .api_client
-            .post("/api/v1/bridge/execute", &request)
+            .post("/api/v1/bridge/quote", &quote_req)
             .await
-            .map_err(|e| format!("Failed to bridge assets: {}", e))?;
+            .map_err(|e| format!("Failed to quote bridge route: {}", e))?;
 
-        // 企业级实现：从后端响应获取费用和汇率信息，如果缺失则使用环境变量配置的默认值
-        let source_amount = amount.parse::<f64>()
-            .unwrap_or_else(|_| {
-                tracing::error!(
-                    "严重警告：金额解析失败 (amount={})，使用硬编码默认值 0.0。生产环境必须确保金额格式正确",
-                    amount
-                );
-                0.0 // 安全默认值：0.0（仅作为最后保障，生产环境不应使用）
+        if quote.route.steps.is_empty() {
+            return Err("Bridge route quote returned no steps".to_string());
+        }
+
+        // 5) 派生私钥（用于签名 approve/swap steps）
+        let key_manager = self
+            .app_state
+            .key_manager
+            .read()
+            .clone()
+            .ok_or_else(|| "Wallet not unlocked (missing key manager)".to_string())?;
+
+        let private_key_hex = key_manager
+            .derive_eth_private_key(source_account_index as u32)
+            .map_err(|e| format!("Failed to derive private key: {}", e))?;
+
+        // 6) 计算 nonce 并签名每一个 step
+        let base_nonce = self
+            .transaction_service
+            .get_nonce(&source_account.address, chain_id)
+            .await
+            .map_err(|e| format!("Failed to get nonce: {}", e))?;
+
+        let gas_limit_service = GasLimitService::new(self.app_state);
+
+        let mut signed_steps: Vec<SignedRouteStep> = Vec::with_capacity(quote.route.steps.len());
+        for (i, step) in quote.route.steps.iter().enumerate() {
+            // Phase A: steps should be on the source chain
+            if !step.chain.eq_ignore_ascii_case(from_chain) {
+                return Err(format!(
+                    "Unexpected route step chain: {} (expected {})",
+                    step.chain, from_chain
+                ));
+            }
+
+            // Estimate gas with calldata so approve/swap doesn't use 21k
+            let gas_est = gas_limit_service
+                .estimate_full(
+                    chain_id,
+                    &source_account.address,
+                    &step.to,
+                    &step.value_wei,
+                    Some(step.data.as_str()),
+                )
+                .await
+                .map_err(|e| format!("Failed to estimate gas for step {}: {}", step.kind, e))?;
+
+            let gas_price = gas_est
+                .gas_price
+                .parse::<u64>()
+                .map_err(|_| format!("Invalid gas_price returned: {}", gas_est.gas_price))?;
+
+            let nonce = base_nonce + i as u64;
+
+            let signed_tx = EthereumTxSigner::sign_transaction_with_data(
+                &private_key_hex,
+                &step.to,
+                &step.value_wei,
+                &step.data,
+                nonce,
+                gas_price,
+                gas_est.gas_limit,
+                chain_id,
+            )
+            .map_err(|e| format!("Failed to sign {} step: {}", step.kind, e))?;
+
+            signed_steps.push(SignedRouteStep {
+                kind: step.kind.clone(),
+                chain: step.chain.clone(),
+                signed_tx,
             });
+        }
 
-        // 企业级实现：从环境变量读取默认汇率（支持动态调整）
-        let default_exchange_rate = std::env::var("BRIDGE_DEFAULT_EXCHANGE_RATE")
-            .ok()
-            .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v > 0.0 && v.is_finite() && v <= 1000.0) // 验证范围：合理值
-            .unwrap_or_else(|| {
-                tracing::error!(
-                    "严重警告：未找到环境变量配置的桥接默认汇率，使用硬编码默认值 1.0。生产环境必须配置环境变量 BRIDGE_DEFAULT_EXCHANGE_RATE"
-                );
-                1.0 // 安全默认值：1.0（仅作为最后保障，生产环境不应使用）
-            });
+        // 7) 调用后端 Bridge Execute（route_steps）
+        #[derive(Debug, Serialize)]
+        struct ExecuteBridgeRequest {
+            source_chain: String,
+            source_address: String,
+            destination_chain: String,
+            destination_address: String,
+            token_symbol: String,
+            amount: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            signed_source_tx: Option<String>,
+            #[serde(skip_serializing_if = "Vec::is_empty")]
+            route_steps: Vec<SignedRouteStep>,
+            bridge_provider: Option<String>,
+            idempotency_key: Option<String>,
+        }
 
-        // 企业级实现：从环境变量读取默认费用（支持动态调整）
-        let default_fee_usdt = std::env::var("BRIDGE_DEFAULT_FEE_USDT")
-            .ok()
-            .and_then(|v| v.parse::<f64>().ok())
-            .filter(|&v| v >= 0.0 && v.is_finite() && v <= 10000.0) // 验证范围：合理值
-            .unwrap_or_else(|| {
-                tracing::error!(
-                    "严重警告：未找到环境变量配置的桥接默认费用，使用硬编码默认值 0.0。生产环境必须配置环境变量 BRIDGE_DEFAULT_FEE_USDT"
-                );
-                0.0 // 安全默认值：0.0（仅作为最后保障，生产环境不应使用）
-            });
+        let request = ExecuteBridgeRequest {
+            source_chain: from_chain.to_string(),
+            source_address: source_account.address.clone(),
+            destination_chain: to_chain.to_string(),
+            destination_address: destination_address.to_string(),
+            token_symbol: token.to_string(),
+            amount: amount.to_string(),
+            signed_source_tx: None,
+            route_steps: signed_steps,
+            bridge_provider: None,
+            idempotency_key: None,
+        };
 
-        // 企业级实现：从环境变量读取默认桥接协议（支持动态调整）
-        let default_bridge_protocol = std::env::var("BRIDGE_DEFAULT_PROTOCOL")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .unwrap_or_else(|| {
-                tracing::error!(
-                    "严重警告：未找到环境变量配置的桥接默认协议，使用硬编码默认值 'unknown'。生产环境必须配置环境变量 BRIDGE_DEFAULT_PROTOCOL"
-                );
-                "unknown".to_string() // 安全默认值（仅作为最后保障，生产环境不应使用）
-            });
+        let response: BridgeResponse = self
+            .api_client
+            .post(api_endpoints::bridge::EXECUTE, &request)
+            .await
+            .map_err(|e| format!("Failed to execute bridge: {}", e))?;
 
-        // 企业级实现：从环境变量读取默认预估时间（支持动态调整）
-        let default_estimated_time = std::env::var("BRIDGE_DEFAULT_ESTIMATED_TIME_MINUTES")
-            .ok()
-            .and_then(|v| v.parse::<u32>().ok())
-            .filter(|&v| v > 0 && v <= 1440) // 验证范围：0-1440分钟（24小时）
-            .unwrap_or_else(|| {
-                tracing::error!(
-                    "严重警告：未找到环境变量配置的桥接默认预估时间，使用硬编码默认值 5分钟。生产环境必须配置环境变量 BRIDGE_DEFAULT_ESTIMATED_TIME_MINUTES"
-                );
-                5 // 安全默认值：5分钟（仅作为最后保障，生产环境不应使用）
-            });
-
-        Ok(BridgeResponse {
-            swap_id: response.swap_id,
-            status: response.status,
-            source_amount,
-            estimated_target_amount: response.estimated_target_amount.unwrap_or(source_amount),
-            actual_target_amount: None,
-            exchange_rate: response.exchange_rate.unwrap_or(default_exchange_rate),
-            fee_usdt: response.fee_usdt.unwrap_or(default_fee_usdt),
-            bridge_protocol: response.bridge_protocol.unwrap_or(default_bridge_protocol),
-            estimated_time_minutes: response
-                .estimated_time_minutes
-                .unwrap_or(default_estimated_time),
-            created_at: response
-                .created_at
-                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
-            completed_at: None,
-        })
+        Ok(response)
     }
 
     /// 获取桥接历史（通过交易历史过滤桥接交易）
@@ -248,105 +551,27 @@ impl BridgeService {
         page: Option<usize>,
         page_size: Option<usize>,
     ) -> Result<BridgeHistoryResponse, String> {
-        let page = page.unwrap_or(1);
-        let page_size = page_size.unwrap_or(20);
-
-        // 获取交易历史
-        let transactions = self
-            .transaction_service
-            .history(page as u32)
-            .await
-            .map_err(|e| format!("Failed to fetch transaction history: {}", e))?;
-
-        // 过滤桥接交易（通过检查交易类型或token字段）
-        // 注意：这里假设桥接交易在token字段中包含特定标识，或通过交易类型判断
-        let bridge_transactions: Vec<BridgeHistoryItem> = transactions
-            .into_iter()
-            .filter_map(|tx| {
-                // 检查是否为桥接交易（通过token或tx_type判断）
-                let is_bridge = tx.tx_type.contains("bridge")
-                    || tx.tx_type.contains("cross-chain")
-                    || tx.tx_type.contains("swap")
-                    || tx.token.contains("bridge")
-                    || tx.hash.starts_with("swap_"); // 假设swap_id格式为swap_xxx
-
-                if is_bridge {
-                    // 解析数量
-                    let amount = tx.amount.parse::<f64>().unwrap_or(0.0);
-                    let fee = tx.fee.parse::<f64>().unwrap_or_else(|e| {
-                        tracing::warn!(
-                            "交易费用解析失败: fee={}, error={}，使用默认值 0.0",
-                            tx.fee,
-                            e
-                        );
-                        0.0 // 安全默认值：解析失败时使用0.0
-                    });
-
-                    // 尝试从hash中提取swap_id（如果格式为swap_xxx）
-                    let swap_id = if tx.hash.starts_with("swap_") {
-                        tx.hash.clone()
-                    } else {
-                        format!("swap_{}", tx.hash)
-                    };
-
-                    Some(BridgeHistoryItem {
-                        swap_id,
-                        source_chain: "unknown".to_string(), // 需要从后端数据中提取
-                        target_chain: "unknown".to_string(), // 需要从后端数据中提取
-                        source_token: tx.token.clone(),
-                        target_token: tx.token.clone(), // 默认相同，实际应从后端数据解析
-                        source_amount: amount,
-                        estimated_target_amount: amount,
-                        actual_target_amount: Some(amount),
-                        status: match tx.status.as_str() {
-                            "confirmed" | "success" | "completed" => "completed".to_string(),
-                            "pending" => "pending".to_string(),
-                            "failed" | "error" => "failed".to_string(),
-                            _ => "processing".to_string(),
-                        },
-                        fee_usdt: fee,
-                        bridge_protocol: "unknown".to_string(),
-                        created_at: {
-                            // 将Unix时间戳转换为RFC3339格式
-                            let timestamp = tx.timestamp as i64;
-                            chrono::DateTime::from_timestamp(timestamp, 0)
-                                .map(|dt| dt.to_rfc3339())
-                                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339())
-                        },
-                        completed_at: if tx.status == "confirmed"
-                            || tx.status == "success"
-                            || tx.status == "completed"
-                        {
-                            let timestamp = tx.timestamp as i64;
-                            Some(
-                                chrono::DateTime::from_timestamp(timestamp, 0)
-                                    .map(|dt| dt.to_rfc3339())
-                                    .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
-                            )
-                        } else {
-                            None
-                        },
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        Ok(BridgeHistoryResponse {
-            bridges: bridge_transactions,
-            total: 0, // 实际总数需要后端支持
+        let page = page.unwrap_or(1) as i64;
+        let page_size = page_size.unwrap_or(20) as i64;
+        let url = format!(
+            "{}?page={}&page_size={}",
+            api_endpoints::bridge::HISTORY,
             page,
-            page_size,
-        })
-    }
-
-    /// 获取桥接状态（使用后端 /api/swap/{id} 端点）
-    pub async fn get_status(&self, swap_id: &str) -> Result<BridgeResponse, String> {
-        let url = format!("/api/v1/swap/{}", swap_id);
+            page_size
+        );
 
         self.api_client
-            .get::<BridgeResponse>(&url)
+            .get::<BridgeHistoryResponse>(&url)
+            .await
+            .map_err(|e| format!("Failed to fetch bridge history: {}", e))
+    }
+
+    /// 获取桥接状态（/api/v1/bridge/:id/status）
+    pub async fn get_status(&self, bridge_id: &str) -> Result<BridgeStatusResponse, String> {
+        let url = api_endpoints::bridge::status(bridge_id);
+
+        self.api_client
+            .get::<BridgeStatusResponse>(&url)
             .await
             .map_err(|e| format!("Failed to get bridge status: {}", e))
     }
@@ -363,19 +588,19 @@ impl BridgeService {
     /// - `Err(String)`: 轮询超时或发生错误
     pub async fn poll_status(
         &self,
-        swap_id: &str,
+        bridge_id: &str,
         max_attempts: Option<usize>,
         interval_ms: Option<u64>,
-    ) -> Result<BridgeResponse, String> {
+    ) -> Result<BridgeStatusResponse, String> {
         let max_attempts = max_attempts.unwrap_or(30);
         let interval_ms = interval_ms.unwrap_or(2000);
 
         for attempt in 1..=max_attempts {
-            match self.get_status(swap_id).await {
+            match self.get_status(bridge_id).await {
                 Ok(status) => {
                     // 检查是否已完成或失败
                     match status.status.as_str() {
-                        "completed" | "failed" => {
+                        "DestinationConfirmed" | "Failed" | "Cancelled" => {
                             return Ok(status);
                         }
                         _ => {
@@ -410,7 +635,7 @@ impl BridgeService {
     #[allow(dead_code)] // 用于桥接执行功能
     pub async fn execute(
         &self,
-        _swap_id: &str,
+        _bridge_id: &str,
         _route_id: &str,
         _signed_tx: &str,
         _from_chain: &str,

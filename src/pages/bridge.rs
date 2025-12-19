@@ -8,7 +8,7 @@ use crate::components::atoms::input::{Input, InputType};
 use crate::components::atoms::select::{Select, SelectOption};
 use crate::components::molecules::error_message::ErrorMessage;
 use crate::components::molecules::ChainSelector;
-use crate::services::bridge::{BridgeHistoryItem, BridgeResponse, BridgeService};
+use crate::services::bridge::{BridgeHistoryItem, BridgeResponse, BridgeService, BridgeStatusResponse};
 use crate::shared::design_tokens::Colors;
 use crate::shared::state::AppState;
 use dioxus::prelude::*;
@@ -18,6 +18,16 @@ use std::sync::Arc;
 #[component]
 pub fn Bridge() -> Element {
     let app_state = use_context::<AppState>();
+
+    fn short_hash(s: &str) -> String {
+        let s = s.trim();
+        if s.len() <= 18 {
+            return s.to_string();
+        }
+        let prefix = &s[..10];
+        let suffix = &s[s.len() - 8..];
+        format!("{}…{}", prefix, suffix)
+    }
 
     // 表单状态
     let mut from_chain = use_signal(|| "ethereum".to_string());
@@ -29,6 +39,7 @@ pub fn Bridge() -> Element {
     let error_message = use_signal(|| Option::<String>::None);
     let is_loading = use_signal(|| false);
     let bridge_response = use_signal(|| Option::<BridgeResponse>::None);
+    let bridge_status = use_signal(|| Option::<BridgeStatusResponse>::None);
     let is_polling = use_signal(|| false);
     let bridge_history = use_signal(Vec::<BridgeHistoryItem>::new);
     let mut show_history = use_signal(|| false);
@@ -45,6 +56,7 @@ pub fn Bridge() -> Element {
         let mut loading = is_loading;
         let mut err = error_message;
         let mut response_sig = bridge_response;
+        let mut status_sig = bridge_status;
 
         if amount_val.is_empty() || amount_val.parse::<f64>().unwrap_or(0.0) <= 0.0 {
             err.set(Some("请输入有效的桥接数量".to_string()));
@@ -67,6 +79,7 @@ pub fn Bridge() -> Element {
         spawn(async move {
             loading.set(true);
             err.set(None);
+            status_sig.set(None);
 
             let bridge_service = BridgeService::new(app_state_clone);
             match bridge_service
@@ -75,40 +88,75 @@ pub fn Bridge() -> Element {
             {
                 Ok(resp) => {
                     log::info!(
-                        "Bridge执行成功: swap_id={}, status={}",
-                        resp.swap_id,
+                        "Bridge执行成功: bridge_id={}, status={}",
+                        resp.bridge_id,
                         resp.status
                     );
                     response_sig.set(Some(resp.clone()));
 
                     // 如果状态是pending或processing，开始轮询
-                    if resp.status == "pending" || resp.status == "processing" {
-                        let swap_id = resp.swap_id.clone();
+                    if resp.status != "DestinationConfirmed" && resp.status != "Failed" {
+                        let bridge_id = resp.bridge_id.clone();
                         let mut polling = is_polling;
                         let mut response_sig_poll = response_sig;
+                        let mut status_sig_poll = status_sig;
                         let bridge_service_poll = bridge_service.clone();
 
                         spawn(async move {
                             polling.set(true);
-                            match bridge_service_poll
-                                .poll_status(&swap_id, Some(30), Some(2000))
-                                .await
-                            {
-                                Ok(final_status) => {
-                                    log::info!(
-                                        "Bridge轮询完成: swap_id={}, final_status={}",
-                                        swap_id,
-                                        final_status.status
-                                    );
-                                    response_sig_poll.set(Some(final_status));
-                                }
-                                Err(e) => {
-                                    log::warn!("Bridge轮询失败: swap_id={}, error={}", swap_id, e);
-                                    // 不设置错误，保持当前状态
+                            // 生产级：轮询时持续刷新状态详情（progress/confirmations/tx hashes）
+                            let max_attempts = 30usize;
+                            let interval_ms = 2000u64;
+
+                            for attempt in 1..=max_attempts {
+                                match bridge_service_poll.get_status(&bridge_id).await {
+                                    Ok(status) => {
+                                        status_sig_poll.set(Some(status.clone()));
+
+                                        // 将最新状态写回执行响应，便于UI展示
+                                        let current_opt = { response_sig_poll.read().clone() };
+                                        if let Some(mut current) = current_opt {
+                                            current.status = status.status.clone();
+                                            response_sig_poll.set(Some(current));
+                                        }
+
+                                        match status.status.as_str() {
+                                            "DestinationConfirmed" | "Failed" | "Cancelled" => {
+                                                break;
+                                            }
+                                            _ => {
+                                                if attempt < max_attempts {
+                                                    gloo_timers::future::TimeoutFuture::new(
+                                                        interval_ms as u32,
+                                                    )
+                                                    .await;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::warn!(
+                                            "Bridge轮询失败: bridge_id={}, attempt={}, error={}",
+                                            bridge_id,
+                                            attempt,
+                                            e
+                                        );
+                                        if attempt < max_attempts {
+                                            gloo_timers::future::TimeoutFuture::new(
+                                                interval_ms as u32,
+                                            )
+                                            .await;
+                                        }
+                                    }
                                 }
                             }
                             polling.set(false);
                         });
+                    } else {
+                        // 终态也尝试取一次详细状态（包含 tx hashes / progress）
+                        if let Ok(status) = bridge_service.get_status(&resp.bridge_id).await {
+                            status_sig.set(Some(status));
+                        }
                     }
                 }
                 Err(e) => {
@@ -130,15 +178,7 @@ pub fn Bridge() -> Element {
     };
 
     // 格式化响应显示数据
-    let bridge_response_display = bridge_response.read().as_ref().map(|resp| {
-        (
-            format!("${:.2}", resp.fee_usdt),
-            format!("{:.6}", resp.estimated_target_amount),
-            format!("{}分钟", resp.estimated_time_minutes),
-            format!("{:.6}", resp.source_amount),
-            format!("{:.6}", resp.exchange_rate),
-        )
-    });
+    // 直接在UI中读取 bridge_response 的字段（避免旧swap结构字段残留）
 
     rsx! {
         div {
@@ -244,43 +284,57 @@ pub fn Bridge() -> Element {
                 }
 
                 // 桥接响应显示
-                if let Some((fee_str, target_amount_str, time_str, source_amount_str, exchange_rate_str)) = bridge_response_display.as_ref() {
-                    if let Some(resp) = bridge_response.read().as_ref() {
-                        Card {
-                            variant: CardVariant::Base,
-                            padding: Some("24px".to_string()),
-                            children: rsx! {
-                                h3 {
-                                    class: "text-lg font-semibold mb-4",
-                                    style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                    "桥接信息"
+                if let Some(resp) = bridge_response.read().as_ref() {
+                    Card {
+                        variant: CardVariant::Base,
+                        padding: Some("24px".to_string()),
+                        children: rsx! {
+                            h3 {
+                                class: "text-lg font-semibold mb-4",
+                                style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                "桥接信息"
+                            }
+                            div {
+                                class: "space-y-3",
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "桥接ID"
+                                    }
+                                    span {
+                                        class: "text-sm font-mono",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.bridge_id}"
+                                    }
                                 }
                                 div {
-                                    class: "space-y-3",
-                                    div {
-                                        class: "flex justify-between items-center",
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "交换ID"
-                                        }
-                                        span {
-                                            class: "text-sm font-mono",
-                                            style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{resp.swap_id}"
-                                        }
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "状态"
                                     }
+                                    span {
+                                        class: "text-sm font-semibold",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.status}"
+                                    }
+                                }
+
+                                if let Some(st) = bridge_status.read().as_ref() {
                                     div {
                                         class: "flex justify-between items-center",
                                         span {
                                             class: "text-sm",
                                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "状态"
+                                            "进度"
                                         }
                                         span {
                                             class: "text-sm font-semibold",
                                             style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{resp.status}"
+                                            {format!("{}%", st.progress_percentage)}
                                         }
                                     }
                                     div {
@@ -288,12 +342,12 @@ pub fn Bridge() -> Element {
                                         span {
                                             class: "text-sm",
                                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "源数量"
+                                            "源确认数"
                                         }
                                         span {
                                             class: "text-sm",
                                             style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{source_amount_str}"
+                                            "{st.source_confirmations}"
                                         }
                                     }
                                     div {
@@ -301,65 +355,162 @@ pub fn Bridge() -> Element {
                                         span {
                                             class: "text-sm",
                                             style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "预估目标数量"
+                                            "目标确认数"
                                         }
                                         span {
-                                            class: "text-sm font-semibold",
+                                            class: "text-sm",
                                             style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{target_amount_str}"
+                                            "{st.destination_confirmations}"
                                         }
                                     }
-                                    div {
-                                        class: "flex justify-between items-center",
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "预估时间"
-                                        }
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{time_str}"
-                                        }
-                                    }
-                                    div {
-                                        class: "flex justify-between items-center",
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "手续费"
-                                        }
-                                        span {
-                                            class: "text-sm font-semibold",
-                                            style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{fee_str}"
+
+                                    if let Some(hash) = st.source_tx_hash.as_ref() {
+                                        div {
+                                            class: "flex justify-between items-center",
+                                            span {
+                                                class: "text-sm",
+                                                style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                                "源交易"
+                                            }
+                                            span {
+                                                class: "text-sm font-mono",
+                                                style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                                {short_hash(hash)}
+                                            }
                                         }
                                     }
-                                    div {
-                                        class: "flex justify-between items-center",
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "桥协议"
-                                        }
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{resp.bridge_protocol}"
+                                    if let Some(hash) = st.approve_tx_hash.as_ref() {
+                                        div {
+                                            class: "flex justify-between items-center",
+                                            span {
+                                                class: "text-sm",
+                                                style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                                "Approve"
+                                            }
+                                            span {
+                                                class: "text-sm font-mono",
+                                                style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                                {short_hash(hash)}
+                                            }
                                         }
                                     }
-                                    div {
-                                        class: "flex justify-between items-center",
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                            "汇率"
+                                    if let Some(hash) = st.swap_tx_hash.as_ref() {
+                                        div {
+                                            class: "flex justify-between items-center",
+                                            span {
+                                                class: "text-sm",
+                                                style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                                "Swap"
+                                            }
+                                            span {
+                                                class: "text-sm font-mono",
+                                                style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                                {short_hash(hash)}
+                                            }
                                         }
-                                        span {
-                                            class: "text-sm",
-                                            style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                            "{exchange_rate_str}"
+                                    }
+                                    if let Some(hash) = st.destination_tx_hash.as_ref() {
+                                        div {
+                                            class: "flex justify-between items-center",
+                                            span {
+                                                class: "text-sm",
+                                                style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                                "目标交易"
+                                            }
+                                            span {
+                                                class: "text-sm font-mono",
+                                                style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                                {short_hash(hash)}
+                                            }
                                         }
+                                    }
+                                    if let Some(steps) = st.route_step_hashes.as_ref() {
+                                        if !steps.is_empty() {
+                                            div {
+                                                class: "flex justify-between items-center",
+                                                span {
+                                                    class: "text-sm",
+                                                    style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                                    "步骤"
+                                                }
+                                                span {
+                                                    class: "text-sm",
+                                                    style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                                    {
+                                                        steps
+                                                            .iter()
+                                                            .map(|s| format!("{}:{}", s.kind, short_hash(&s.tx_hash)))
+                                                            .collect::<Vec<_>>()
+                                                            .join("  ")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "源链"
+                                    }
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.source_chain}"
+                                    }
+                                }
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "目标链"
+                                    }
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.destination_chain}"
+                                    }
+                                }
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "数量"
+                                    }
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.amount}"
+                                    }
+                                }
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "预估到达时间"
+                                    }
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        "{resp.estimated_arrival_time}"
+                                    }
+                                }
+                                div {
+                                    class: "flex justify-between items-center",
+                                    span {
+                                        class: "text-sm",
+                                        style: format!("color: {};", Colors::TEXT_SECONDARY),
+                                        "手续费"
+                                    }
+                                    span {
+                                        class: "text-sm font-semibold",
+                                        style: format!("color: {};", Colors::TEXT_PRIMARY),
+                                        {format!("${:.2}", resp.fee_info.total_fee_usd)}
                                     }
                                 }
                             }
@@ -466,7 +617,7 @@ pub fn Bridge() -> Element {
                                                     span {
                                                         class: "text-xs font-mono",
                                                         style: format!("color: {};", Colors::TEXT_TERTIARY),
-                                                        "{item.swap_id}"
+                                                        "{item.bridge_id}"
                                                     }
                                                 }
                                                 span {
@@ -474,16 +625,16 @@ pub fn Bridge() -> Element {
                                                     style: format!(
                                                         "color: {}; background: {};",
                                                         match item.status.as_str() {
-                                                            "completed" => Colors::PAYMENT_SUCCESS,
-                                                            "failed" => Colors::PAYMENT_ERROR,
-                                                            "pending" => Colors::PAYMENT_WARNING,
-                                                            _ => Colors::TEXT_SECONDARY,
+                                                            "DestinationConfirmed" => Colors::PAYMENT_SUCCESS,
+                                                            "Failed" => Colors::PAYMENT_ERROR,
+                                                            "Cancelled" => Colors::PAYMENT_ERROR,
+                                                            _ => Colors::PAYMENT_WARNING,
                                                         },
                                                         match item.status.as_str() {
-                                                            "completed" => "rgba(16, 185, 129, 0.1)",
-                                                            "failed" => "rgba(239, 68, 68, 0.1)",
-                                                            "pending" => "rgba(245, 158, 11, 0.1)",
-                                                            _ => "rgba(255, 255, 255, 0.05)",
+                                                            "DestinationConfirmed" => "rgba(16, 185, 129, 0.1)",
+                                                            "Failed" => "rgba(239, 68, 68, 0.1)",
+                                                            "Cancelled" => "rgba(239, 68, 68, 0.1)",
+                                                            _ => "rgba(245, 158, 11, 0.1)",
                                                         }
                                                     ),
                                                     {item.status.clone()}
@@ -492,15 +643,13 @@ pub fn Bridge() -> Element {
                                             div {
                                                 class: "text-sm",
                                                 style: format!("color: {};", Colors::TEXT_SECONDARY),
-                                                "{item.source_chain} → {item.target_chain}"
+                                                "{item.source_chain} → {item.destination_chain}"
                                             }
                                             div {
                                                 class: "text-sm font-semibold",
                                                 style: format!("color: {};", Colors::TEXT_PRIMARY),
                                                 {
-                                                    let source_amt = format!("{:.6}", item.source_amount);
-                                                    let target_amt = format!("{:.6}", item.estimated_target_amount);
-                                                    format!("{} {} → {} {}", source_amt, item.source_token, target_amt, item.target_token)
+                                                    format!("{} {}", item.amount, item.token_symbol)
                                                 }
                                             }
                                         }

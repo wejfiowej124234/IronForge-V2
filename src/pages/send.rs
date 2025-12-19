@@ -28,6 +28,43 @@ use anyhow::{anyhow, Result};
 use dioxus::prelude::*;
 use std::sync::Arc;
 
+fn is_evm_chain(chain: ChainType) -> bool {
+    matches!(chain, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon)
+}
+
+fn is_bridge_supported(from: ChainType, to: ChainType) -> bool {
+    from != to && is_evm_chain(from) && is_evm_chain(to)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AutoStrategyDecision {
+    Direct,
+    Bridge,
+    BlockedBitcoin,
+    BlockedNative,
+    BlockedUnsupportedPair,
+}
+
+fn decide_auto_strategy(from_chain: ChainType, target_chain: ChainType, token_is_native: bool) -> AutoStrategyDecision {
+    if target_chain == from_chain {
+        return AutoStrategyDecision::Direct;
+    }
+
+    if target_chain == ChainType::Bitcoin {
+        return AutoStrategyDecision::BlockedBitcoin;
+    }
+
+    if token_is_native {
+        return AutoStrategyDecision::BlockedNative;
+    }
+
+    if !is_bridge_supported(from_chain, target_chain) {
+        return AutoStrategyDecision::BlockedUnsupportedPair;
+    }
+
+    AutoStrategyDecision::Bridge
+}
+
 /// 解析十六进制字符串为u64（辅助函数）
 fn parse_hex_u64(hex: &str) -> Result<u64> {
     let hex_clean = hex.trim_start_matches("0x");
@@ -118,6 +155,29 @@ async fn estimate_gas_limit(
             };
             Ok(default_gas)
         }
+    }
+}
+
+#[cfg(test)]
+mod auto_switch_tests {
+    use super::*;
+
+    #[test]
+    fn evm_address_plus_different_selected_chain_prefers_bridge() {
+        // User selects a token on BSC, but pastes an EVM-format address.
+        // AddressDetector will classify it as Ethereum (EVM), which should still trigger EVM↔EVM bridge.
+        let addr = "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb6";
+        let detected = AddressDetector::detect_chain(addr).unwrap();
+        assert_eq!(detected, ChainType::Ethereum);
+
+        let decision = decide_auto_strategy(ChainType::BSC, detected, false);
+        assert_eq!(decision, AutoStrategyDecision::Bridge);
+    }
+
+    #[test]
+    fn cross_chain_native_is_blocked() {
+        let decision = decide_auto_strategy(ChainType::Ethereum, ChainType::BSC, true);
+        assert_eq!(decision, AutoStrategyDecision::BlockedNative);
     }
 }
 
@@ -583,11 +643,12 @@ async fn execute_direct_transfer(
 async fn execute_bridge_transfer(
     app_state: &AppState,
     wallet_ctrl: &crate::features::wallet::hooks::WalletController,
-    _recipient: &str,
+    recipient: &str,
     amount: f64,
     from_chain: &ChainType,
     _from_account: &Account,
     to_chain: &ChainType,
+    selected_token: Option<TokenInfo>,
 ) -> Result<()> {
     use crate::services::bridge::BridgeService;
     // 1. 获取钱包ID
@@ -604,35 +665,38 @@ async fn execute_bridge_transfer(
     let from_chain_str = from_chain.as_str();
     let to_chain_str = to_chain.as_str();
 
-    // ✅ 使用ChainConfigManager获取代币符号（移除硬编码）
-    let config_manager = ChainConfigManager::new();
-    let token = config_manager
-        .get_native_token(*from_chain)
-        .map_err(|e| anyhow!("获取代币符号失败: {}", e))?;
+    let token = selected_token
+        .as_ref()
+        .ok_or_else(|| anyhow!("请选择要跨链发送的代币"))?;
+
+    if token.is_native {
+        return Err(anyhow!("当前跨链发送暂不支持原生资产（仅支持USDT/USDC等ERC20）"));
+    }
 
     // 3. 调用跨链桥服务
     let bridge_service = BridgeService::new(*app_state);
 
-    // 注意：BridgeService的bridge_assets需要wallet名称，这里使用wallet_id
+    // ✅ 发送页：destination_address 使用用户输入的 recipient（外部地址）
     let bridge_response = bridge_service
-        .bridge_assets(
+        .bridge_assets_to_address(
             wallet_id,
             from_chain_str,
             to_chain_str,
-            &token,
+            &token.symbol,
             &amount.to_string(),
+            recipient,
         )
         .await
         .map_err(|e| anyhow!("跨链桥失败: {}", e))?;
 
     log::info!(
-        "跨链桥已发起: swap_id={}, status={}",
-        bridge_response.swap_id,
+        "跨链桥已发起: bridge_id={}, status={}",
+        bridge_response.bridge_id,
         bridge_response.status
     );
 
     // 4. 如果需要，可以轮询状态直到完成
-    // bridge_service.poll_status(&bridge_response.swap_id, Some(30), Some(2000)).await?;
+    // bridge_service.poll_status(&bridge_response.bridge_id, Some(30), Some(2000)).await?;
 
     Ok(())
 }
@@ -713,12 +777,17 @@ pub fn Send() -> Element {
                     // ✅ 如果用户已选择代币，验证地址是否匹配代币的链
                     if let Some(ref token_info) = token {
                         if detected != token_info.chain {
-                            address_validation_error_mut.set(Some(format!(
-                                "⚠️ 地址错误：该地址属于 {}，但您选择的代币 {} 在 {} 上",
-                                detected.label(),
-                                token_info.symbol,
-                                token_info.chain.label()
-                            )));
+                            // ✅ 跨链场景：只要是支持的 EVM↔EVM 组合就允许继续（资产类型交由后端 quote 校验）
+                            if is_bridge_supported(token_info.chain, detected) {
+                                address_validation_error_mut.set(None);
+                            } else {
+                                address_validation_error_mut.set(Some(format!(
+                                    "⚠️ 地址错误：该地址属于 {}，但您选择的代币 {} 在 {} 上",
+                                    detected.label(),
+                                    token_info.symbol,
+                                    token_info.chain.label()
+                                )));
+                            }
                         } else {
                             address_validation_error_mut.set(None); // ✅ 验证通过
                         }
@@ -746,10 +815,159 @@ pub fn Send() -> Element {
         }
     });
 
+    // ✅ 自动选择支付策略：同链直发 / 跨链桥（EVM↔EVM）/ 不支持
+    use_effect(move || {
+        let token = selected_token.read().clone();
+        let detected = detected_chain.read().clone();
+        let wallet = current_wallet.read().clone();
+        let amt_str = amount.read().clone();
+        let gas = gas_estimate.read().clone();
+        let platform_fee_val = platform_fee.read().unwrap_or(0.0);
+        let mut strategy_mut = payment_strategy;
+        let mut err_mut = error_message;
+        let app_state_clone = app_state.clone();
+
+        spawn(async move {
+            let (Some(token), Some(target_chain), Some(wallet)) = (token, detected, wallet) else {
+                strategy_mut.set(None);
+                return;
+            };
+
+            let amount_val: f64 = match amt_str.parse() {
+                Ok(v) if v > 0.0 => v,
+                _ => {
+                    strategy_mut.set(None);
+                    return;
+                }
+            };
+
+            // 当前版本：Send 页跨链桥仅支持 EVM↔EVM，且仅支持原生资产。
+            let from_chain = token.chain;
+
+            match decide_auto_strategy(from_chain, target_chain, token.is_native) {
+                AutoStrategyDecision::Direct => {
+                    // continue (handled below)
+                }
+                AutoStrategyDecision::Bridge => {
+                    // continue (handled below)
+                }
+                AutoStrategyDecision::BlockedBitcoin => {
+                    err_mut.set(Some("当前跨链桥不支持 ETH→BTC（Bitcoin）".to_string()));
+                    strategy_mut.set(None);
+                    return;
+                }
+                AutoStrategyDecision::BlockedNative => {
+                    err_mut.set(Some(
+                        "当前跨链发送暂不支持原生资产（仅支持USDT/USDC等ERC20）".to_string(),
+                    ));
+                    strategy_mut.set(None);
+                    return;
+                }
+                AutoStrategyDecision::BlockedUnsupportedPair => {
+                    err_mut.set(Some(format!(
+                        "当前跨链桥仅支持 ethereum/bsc/polygon，暂不支持 {}→{}",
+                        from_chain.label(),
+                        target_chain.label()
+                    )));
+                    strategy_mut.set(None);
+                    return;
+                }
+            }
+
+            // 在钱包中找到源链账户
+            let from_account: Account = match wallet.accounts.iter().find(|acc| {
+                ChainType::from_str(&acc.chain)
+                    .map(|c| c == from_chain)
+                    .unwrap_or(false)
+            }) {
+                Some(a) => a.clone(),
+                None => {
+                    err_mut.set(Some(format!("未找到 {} 链账户", from_chain.label())));
+                    strategy_mut.set(None);
+                    return;
+                }
+            };
+
+            // 计算 gas_fee（用于费用明细展示与余额校验）
+            let gas_fee = gas
+                .as_ref()
+                .map(|g| crate::services::gas::gas_fee_eth_from_max_fee_per_gas_gwei(
+                    g.max_fee_per_gas_gwei,
+                    21_000,
+                ))
+                .unwrap_or(0.0);
+
+            // 组装 gas_details（直接转账需要）
+            let gas_details = gas.as_ref().map(|g| crate::services::payment_router_enterprise::GasDetails {
+                base_fee: g.base_fee.clone(),
+                max_priority_fee: g.max_priority_fee.clone(),
+                max_fee_per_gas: g.max_fee_per_gas.clone(),
+                estimated_time_seconds: g.estimated_time_seconds,
+            });
+
+            // 同链：直接发送
+            if target_chain == from_chain {
+                let mut fee_breakdown = crate::services::payment_router_enterprise::FeeBreakdown {
+                    gas_fee,
+                    platform_fee: platform_fee_val,
+                    bridge_fee: 0.0,
+                    total_fee: 0.0,
+                    gas_details,
+                };
+                fee_breakdown.calculate_total();
+                err_mut.set(None);
+                strategy_mut.set(Some(PaymentStrategy::Direct {
+                    chain: from_chain,
+                    account: from_account,
+                    fee_breakdown,
+                }));
+                return;
+            }
+
+            // 跨链：Phase A 先支持 ERC20（Stargate pool）；原生资产跨链暂不支持
+
+            // 查询桥费用（对齐后端 /api/v1/bridge/quote），失败会在 service 内部降级
+            let bridge_fee_service = crate::services::bridge_fee::BridgeFeeService::new(app_state_clone);
+            let quote = match bridge_fee_service
+                .get_bridge_fee(from_chain, target_chain, amount_val, Some(token.symbol.as_str()))
+                .await
+            {
+                Ok(q) => q,
+                Err(e) => {
+                    err_mut.set(Some(crate::shared::ui_error::sanitize_user_message(format!(
+                        "获取跨链费用失败: {}",
+                        e
+                    ))));
+                    strategy_mut.set(None);
+                    return;
+                }
+            };
+
+            let mut fee_breakdown = crate::services::payment_router_enterprise::FeeBreakdown {
+                gas_fee,
+                platform_fee: platform_fee_val,
+                bridge_fee: quote.bridge_fee,
+                total_fee: 0.0,
+                gas_details,
+            };
+            fee_breakdown.calculate_total();
+
+            err_mut.set(None);
+            strategy_mut.set(Some(PaymentStrategy::Bridge {
+                from_chain,
+                from_account,
+                to_chain: target_chain,
+                fee_breakdown,
+            }));
+        });
+    });
+
     // ✅ 金额或速度等级变化时自动计算Gas费用
     use_effect(move || {
         let mut fee_calculating_mut = fee_calculating;
         let mut error_message_mut = error_message;
+        let gas_est_mut = gas_estimate;
+        let mut gas_loading_mut = gas_loading;
 
         // 当选择了代币、输入了地址和金额后，自动计算费用
         if let (Some(token), Some(_detected), Some(wallet)) = (
@@ -760,6 +978,7 @@ pub fn Send() -> Element {
             match PaymentValidator::validate_amount(&amount.read()) {
                 Ok(amount_val) => {
                     fee_calculating_mut.set(true);
+                    gas_loading_mut.set(true);
                     let app_state_clone = app_state.clone();
                     let chain_clone = token.chain; // ✅ 使用代币的链
                     let wallet_clone = wallet.clone();
@@ -767,12 +986,19 @@ pub fn Send() -> Element {
 
                     let mut fee_calculating_clone = fee_calculating_mut;
                     let mut error_message_clone = error_message_mut;
+                    let mut gas_est_clone = gas_est_mut;
+                    let mut gas_loading_clone = gas_loading_mut;
                     spawn(async move {
-                        // 调用Gas服务计算费用（简化版，不涉及跨链）
+                        // ✅ 按速度档位获取 Gas 估算：Slow/Medium/Fast
                         let gas_service = GasService::new(app_state_clone);
-                        match gas_service.get_recommended(chain_clone.as_str()).await {
-                            Ok(_gas_est) => {
+                        match gas_service
+                            .estimate(chain_clone.as_str(), speed_tier_clone.to_gas_speed())
+                            .await
+                        {
+                            Ok(gas_est) => {
+                                gas_est_clone.set(Some(gas_est));
                                 fee_calculating_clone.set(false);
+                                gas_loading_clone.set(false);
                             }
                             Err(e) => {
                                 error_message_clone.set(Some(
@@ -782,6 +1008,7 @@ pub fn Send() -> Element {
                                     )),
                                 ));
                                 fee_calculating_clone.set(false);
+                                gas_loading_clone.set(false);
                             }
                         }
                     });
@@ -795,7 +1022,7 @@ pub fn Send() -> Element {
         }
     });
 
-    // ✅ 加载Gas费用（基于选择的代币链）和平台服务费
+    // ✅ 计算平台服务费（基于选择的代币链）
     use_effect(move || {
         let chain_str = if let Some(token) = selected_token.read().as_ref() {
             token.chain.as_str()
@@ -806,25 +1033,10 @@ pub fn Send() -> Element {
         };
 
         let app_state_clone = app_state;
-        let mut gas_est = gas_estimate;
-        let mut gas_load = gas_loading;
         let mut platform_fee_mut = platform_fee;
         let amt = amount.read().clone();
 
         spawn(async move {
-            gas_load.set(true);
-
-            // 计算Gas费用
-            let gas_service = GasService::new(app_state_clone.clone());
-            match gas_service.get_recommended(chain_str).await {
-                Ok(est) => {
-                    gas_est.set(Some(est));
-                }
-                Err(_) => {
-                    // 静默失败，不阻塞用户
-                }
-            }
-
             // 计算平台服务费（如果输入了金额）
             if !amt.trim().is_empty() {
                 if let Ok(amount_f64) = amt.parse::<f64>() {
@@ -855,8 +1067,6 @@ pub fn Send() -> Element {
             } else {
                 platform_fee_mut.set(None);
             }
-
-            gas_load.set(false);
         });
     });
 
@@ -1287,6 +1497,7 @@ pub fn Send() -> Element {
                                             &from_chain,
                                             &from_account,
                                             &to_chain,
+                                            token_clone.clone(),
                                         ).await {
                                             Ok(_) => {
                                                 AppState::show_success(toasts, format!(

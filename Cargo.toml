@@ -108,6 +108,9 @@ tracing = "0.1"
 tracing-wasm = "0.2"
 uuid = { version = "1", features = ["serde", "v4", "js"] }
 
+# URL query encoding
+urlencoding = "2.1"
+
 # Blockchain Clients (Phase 2/3)
 # ethers = { version = "2.0", default-features = false, features = ["rustls"] } # Commented out until needed to avoid build issues
 # solana-client-wasm = "..."

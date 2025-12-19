@@ -1,7 +1,7 @@
 //! Gas Fee Card - Gas费显示卡片组件
 //! 显示Gas费估算信息，支持加载状态
 
-use crate::services::gas::GasEstimate;
+use crate::services::gas::{gas_fee_eth_from_max_fee_per_gas_gwei, GasEstimate};
 use crate::shared::design_tokens::Colors;
 use dioxus::prelude::*;
 
@@ -48,7 +48,13 @@ pub fn GasFeeCard(
                             span {
                                 class: "text-sm font-semibold",
                                 style: format!("color: {};", Colors::TEXT_PRIMARY),
-                                {format!("{:.6} ETH", gas.max_fee_per_gas_gwei * 21000.0 / 1e9)}
+                                {
+                                    let gas_fee = gas_fee_eth_from_max_fee_per_gas_gwei(
+                                        gas.max_fee_per_gas_gwei,
+                                        21_000,
+                                    );
+                                    format!("{:.8} ETH", gas_fee)
+                                }
                             }
                         }
                         // 平台服务费
@@ -81,9 +87,12 @@ pub fn GasFeeCard(
                                 class: "text-sm font-bold",
                                 style: format!("color: {};", Colors::TECH_PRIMARY),
                                 {
-                                    let gas_fee = gas.max_fee_per_gas_gwei * 21000.0 / 1e9;
+                                    let gas_fee = gas_fee_eth_from_max_fee_per_gas_gwei(
+                                        gas.max_fee_per_gas_gwei,
+                                        21_000,
+                                    );
                                     let total = gas_fee + platform_fee.unwrap_or(0.0);
-                                    format!("{:.6} ETH", total)
+                                    format!("{:.8} ETH", total)
                                 }
                             }
                         }

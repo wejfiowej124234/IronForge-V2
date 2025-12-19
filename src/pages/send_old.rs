@@ -703,7 +703,7 @@ pub fn Send() -> Element {
                                         let tx_hash = broadcast_resp.tx_hash.clone();
                                         let mut confirmed = false;
                                         for _ in 0..30 { // 最多等待30次（约5分钟）
-                                            match tx_service.status(&tx_hash).await {
+                                            match tx_service.status_on_chain(&tx_hash, &chain).await {
                                                 Ok(status) => {
                                                     if status.status == "confirmed" {
                                                         confirmed = true;

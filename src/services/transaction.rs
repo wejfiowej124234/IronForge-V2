@@ -33,6 +33,33 @@ pub struct TransactionService {
     app_state: AppState,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum TxHistoryData {
+    List(Vec<TransactionHistoryItem>),
+    Page {
+        transactions: Vec<TransactionHistoryItem>,
+        #[allow(dead_code)]
+        #[serde(default)]
+        total: Option<u64>,
+        #[allow(dead_code)]
+        #[serde(default)]
+        page: Option<u32>,
+        #[allow(dead_code)]
+        #[serde(default)]
+        page_size: Option<u32>,
+    },
+}
+
+impl TxHistoryData {
+    fn into_list(self) -> Vec<TransactionHistoryItem> {
+        match self {
+            TxHistoryData::List(v) => v,
+            TxHistoryData::Page { transactions, .. } => transactions,
+        }
+    }
+}
+
 impl TransactionService {
     pub fn new(app_state: AppState) -> Self {
         Self { app_state }
@@ -60,9 +87,22 @@ impl TransactionService {
     }
 
     pub async fn status(&self, tx_hash: &str) -> Result<TransactionStatus, AppError> {
-        let path = format!("/api/v1/transactions/{}/status", tx_hash);
+        // Backend currently expects a `chain` query parameter.
+        // Default to ethereum for backward compatibility when the caller doesn't know the chain.
+        let path = format!("/api/v1/transactions/{}/status?chain=ethereum", tx_hash);
         let api = self.api();
         // ✅ v1标准路径
+        api.get(&path).await.map_err(AppError::Api)
+    }
+
+    /// Get transaction status with explicit chain (recommended).
+    pub async fn status_on_chain(
+        &self,
+        tx_hash: &str,
+        chain: &str,
+    ) -> Result<TransactionStatus, AppError> {
+        let path = format!("/api/v1/transactions/{}/status?chain={}", tx_hash, chain);
+        let api = self.api();
         api.get(&path).await.map_err(AppError::Api)
     }
 
@@ -113,8 +153,9 @@ impl TransactionService {
     pub async fn history(&self, page: u32) -> Result<Vec<TransactionHistoryItem>, AppError> {
         let path = format!("/api/v1/transactions/history?page={}", page);
         let api = self.api();
-        // deserialize 方法已自动提取 data 字段
-        api.get(&path).await.map_err(AppError::Api)
+        // Backend may return either `data: []` or `data: { transactions: [] ... }`
+        let data: TxHistoryData = api.get(&path).await.map_err(AppError::Api)?;
+        Ok(data.into_list())
     }
 
     /// 按地址查询交易历史（✅ V1 API标准：使用公开路由）
@@ -126,8 +167,9 @@ impl TransactionService {
         // ✅ 使用后端公开路由：GET /api/wallets/:address/transactions?chain=xxx
         let path = format!("/api/v1/wallets/{}/transactions?chain={}", address, chain);
         let api = self.api();
-        // deserialize 方法已自动提取 data 字段
-        api.get(&path).await.map_err(AppError::Api)
+        // Backend may return either `data: []` or `data: { transactions: [] ... }`
+        let data: TxHistoryData = api.get(&path).await.map_err(AppError::Api)?;
+        Ok(data.into_list())
     }
 
     /// Get Solana recent blockhash

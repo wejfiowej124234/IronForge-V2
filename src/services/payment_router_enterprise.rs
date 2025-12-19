@@ -874,6 +874,19 @@ impl SpeedTier {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::gas::GasSpeed;
+
+    #[test]
+    fn speed_tier_to_gas_speed_mapping() {
+        assert_eq!(SpeedTier::Slow.to_gas_speed(), GasSpeed::Slow);
+        assert_eq!(SpeedTier::Medium.to_gas_speed(), GasSpeed::Average);
+        assert_eq!(SpeedTier::Fast.to_gas_speed(), GasSpeed::Fast);
+    }
+}
+
 /// 解析十六进制字符串为u64
 fn parse_hex_u64(hex: &str) -> Result<u64> {
     let hex_clean = hex.trim_start_matches("0x");

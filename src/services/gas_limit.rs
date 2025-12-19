@@ -4,6 +4,7 @@
 use crate::shared::api::ApiClient;
 use crate::shared::error::AppError;
 use crate::shared::state::AppState;
+use urlencoding::encode;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GasLimitEstimate {
@@ -51,18 +52,26 @@ impl GasLimitService {
     pub async fn estimate(
         &self,
         chain_id: u64,
-        _from: &str,
+            from: &str,
         to: &str,
         amount: &str,
         data: Option<&str>,
     ) -> Result<u64, AppError> {
         let api = self.api();
 
-        // 使用GET请求，将参数放在查询字符串中
-        let path = format!(
-            "/api/v1/fees?chain_id={}&to={}&amount={}",
-            chain_id, to, amount
-        );
+            // 使用GET请求，将参数放在查询字符串中
+            // ✅ Phase A: 支持可选 from+data 以便后端 eth_estimateGas 精准估算合约调用
+            let mut path = format!(
+                "/api/v1/fees?chain_id={}&to={}&amount={}",
+                chain_id,
+                encode(to),
+                encode(amount)
+            );
+            if let Some(d) = data {
+                if !d.trim().is_empty() {
+                    path.push_str(&format!("&from={}&data={}", encode(from), encode(d)));
+                }
+            }
 
         #[derive(Deserialize)]
         struct FeesApiResponse {
@@ -140,17 +149,24 @@ impl GasLimitService {
     pub async fn estimate_full(
         &self,
         chain_id: u64,
-        _from: &str,
+            from: &str,
         to: &str,
         amount: &str,
-        _data: Option<&str>, // 保留参数以保持API一致性，但当前API不支持data参数
+            data: Option<&str>,
     ) -> Result<GasLimitEstimate, AppError> {
         let api = self.api();
 
-        let path = format!(
-            "/api/v1/fees?chain_id={}&to={}&amount={}",
-            chain_id, to, amount
-        );
+            let mut path = format!(
+                "/api/v1/fees?chain_id={}&to={}&amount={}",
+                chain_id,
+                encode(to),
+                encode(amount)
+            );
+            if let Some(d) = data {
+                if !d.trim().is_empty() {
+                    path.push_str(&format!("&from={}&data={}", encode(from), encode(d)));
+                }
+            }
 
         #[derive(Deserialize)]
         struct FeesApiResponse {
