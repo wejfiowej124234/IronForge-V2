@@ -401,7 +401,7 @@ fn verify_checksum(address: &str) -> bool {
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https:;
     font-src 'self';
-    connect-src 'self' https://api.ironforge.io;
+    connect-src 'self' https://<your-backend-host>;
     frame-ancestors 'none';
     base-uri 'self';
     form-action 'self';

@@ -1127,7 +1127,7 @@ pub struct ApiAdapter;
 impl ApiAdapter {
     pub async fn fetch_wallet(wallet_id: &str) -> Result<Wallet> {
         // 调用外部 API
-        let response: ApiWalletResponse = reqwest::get(format!("/api/wallets/{}", wallet_id))
+        let response: ApiWalletResponse = reqwest::get(format!("/api/v1/wallets/{}", wallet_id))
             .await?
             .json()
             .await?;

@@ -300,7 +300,7 @@ map.insert(("my.new.key", "ko"), "내 새 텍스트");
 ### 日常开发
 ```bash
 # 1. 启动开发服务器
-cd IronForge
+cd IronForge-V2
 trunk serve --port 8081
 
 # 2. 编辑代码（热重载）

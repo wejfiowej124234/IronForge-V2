@@ -127,9 +127,9 @@ let accounts = self.rpc_client.get_program_accounts_with_config(
 
 | 功能 | 状态 | 实现方式 | 文档位置 |
 |------|------|---------|---------|
-| 用户注册 | ✅ 生产级 | POST /auth/register (邮箱+密码) | `03-api-design/02-frontend-api-layer.md` |
-| 用户登录 | ✅ 生产级 | POST /auth/login → JWT Token | 同上 |
-| Token刷新 | ✅ 生产级 | POST /auth/refresh | 同上 |
+| 用户注册 | ✅ 生产级 | POST /api/v1/auth/register (邮箱+密码) | `03-api-design/02-frontend-api-layer.md` |
+| 用户登录 | ✅ 生产级 | POST /api/v1/auth/login → JWT Token | 同上 |
+| Token刷新 | ✅ 生产级 | POST /api/v1/auth/refresh | 同上 |
 | 会话管理 | ✅ 生产级 | LocalStorage + 过期检查 | `02-technical-design/03-state-management.md` |
 
 **代码验证**:
@@ -137,7 +137,7 @@ let accounts = self.rpc_client.get_program_accounts_with_config(
 // ✅ 真实API调用
 pub async fn login(&self, email: String, password: String) -> Result<LoginResponse, ApiError> {
     let request = LoginRequest { email, password, remember_me: false };
-    let response: LoginResponse = self.api_client.post("/api/auth/login", request).await?;
+    let response: LoginResponse = self.api_client.post("/api/v1/auth/login", request).await?;
     
     // 保存真实JWT Token
     self.token_manager.set_token(response.jwt_token.clone()).await;

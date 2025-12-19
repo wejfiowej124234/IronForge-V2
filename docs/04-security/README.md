@@ -333,7 +333,7 @@ echo "$TOKEN" | base64 -d 2>/dev/null && echo "✅ Valid Base64" || echo "❌ In
 
 # 2. 测试 API
 curl -H "Authorization: Bearer $TOKEN" \
-     https://api.ironforge.dev/api/wallets
+    https://<your-backend-host>/api/v1/wallets
 
 # 3. 检查 Token 过期
 jwt decode "$TOKEN" | jq .exp

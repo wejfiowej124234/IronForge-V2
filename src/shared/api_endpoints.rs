@@ -163,7 +163,6 @@ pub mod fiat {
 pub mod gas {
     pub const ESTIMATE: &str = "/api/v1/gas/estimate";
     pub const ESTIMATE_ALL: &str = "/api/v1/gas/estimate-all";
-    pub const PRICE: &str = "/api/v1/gas/price";
 }
 
 /// Token 端点（✅ 企业级标准 V1）

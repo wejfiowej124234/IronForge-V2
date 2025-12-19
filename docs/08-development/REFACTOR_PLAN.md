@@ -142,26 +142,13 @@ components/
 
 #### 后端API端点（从文档分析）
 
-**认证API**：
-- `POST /api/auth/register` - 注册
-- `POST /api/auth/login` - 登录
-- `POST /api/auth/logout` - 登出
-- `GET /api/auth/me` - 获取用户信息
+本阶段不再维护“手写端点清单”（容易与真实实现漂移）。
 
-**钱包管理API**：
-- `GET /api/wallets` - 钱包列表
-- `POST /api/wallets` - 创建钱包
-- `GET /api/wallets/{id}` - 获取钱包
-- `PUT /api/wallets/{id}` - 更新钱包
-- `DELETE /api/wallets/{id}` - 删除钱包
+- 业务接口统一前缀：`/api/v1/...`
+- 权威来源：后端 OpenAPI（`GET http://localhost:8088/openapi.yaml`）
+- 统一响应结构：`{ code, message, data }`
 
-**交易API**：
-- `POST /api/transactions/send` - 发送交易
-- `GET /api/transactions` - 交易列表
-- `GET /api/transactions/{id}` - 交易详情
-
-**余额API**：
-- `GET /api/balance/{address}` - 查询余额
+提示：页面对接时优先覆盖 Send/Bridge 关键链路（Gas/Fees/Bridge Quote/Tx 记录），以 OpenAPI 中的真实路径与 schema 为准。
 
 #### 页面结构设计
 

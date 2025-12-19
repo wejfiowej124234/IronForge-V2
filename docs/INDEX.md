@@ -168,7 +168,7 @@
 
 ### Development Server
 ```bash
-cd IronForge
+cd IronForge-V2
 trunk serve --port 8081 --open
 ```
 

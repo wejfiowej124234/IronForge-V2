@@ -9,7 +9,7 @@
 
 ### 1️⃣ 启动前端开发服务器
 ```bash
-cd IronForge
+cd IronForge-V2
 trunk serve
 ```
 访问 http://127.0.0.1:8080
@@ -22,11 +22,12 @@ trunk serve
 - Firefox: `F12`
 - 切换到 **Console (控制台)** 标签
 
-### 4️⃣ 运行诊断脚本
-复制粘贴以下文件内容到控制台并回车：
+### 4️⃣ 快速检查本地 token
+在 Console 执行：
+```js
+localStorage.getItem("user_state")
 ```
-IronForge/debug_auth.js
-```
+确认其中存在 `access_token`，并且是 JWT（形如 `xxx.yyy.zzz`）。
 
 ## 诊断结果分析
 
@@ -55,7 +56,7 @@ IronForge/debug_auth.js
 
 ### ✅ 已验证的代码路径
 
-#### 1. 登录流程 (`IronForge/src/features/auth/hooks.rs:56-82`)
+#### 1. 登录流程 (`IronForge-V2/src/features/auth/hooks.rs:56-82`)
 ```rust
 pub async fn login(&self, email: &str, password: &str) -> Result<()> {
     let response = auth_service.login_email(email, password).await?;
@@ -72,7 +73,7 @@ pub async fn login(&self, email: &str, password: &str) -> Result<()> {
 }
 ```
 
-#### 2. API 客户端获取 (`IronForge/src/shared/state.rs:62-106`)
+#### 2. API 客户端获取 (`IronForge-V2/src/shared/state.rs:62-106`)
 ```rust
 pub fn get_api_client(&self) -> ApiClient {
     let mut api_client = (*self.api.read()).clone();
@@ -89,7 +90,7 @@ pub fn get_api_client(&self) -> ApiClient {
 }
 ```
 
-#### 3. HTTP 请求构建 (`IronForge/src/shared/api.rs:119-131`)
+#### 3. HTTP 请求构建 (`IronForge-V2/src/shared/api.rs:119-131`)
 ```rust
 AuthToken::Bearer(value) => {
     let header_val = format!("Bearer {}", value);
@@ -115,8 +116,10 @@ AuthToken::Bearer(value) => {
 **验证方法**:
 ```bash
 # 使用 curl 测试后端
-curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:3012/api/v1/limit-orders
+curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:8088/api/v1/limit-orders
 ```
+
+> 注意：后端默认端口为 8088（除非你在配置里改过）。
 
 ### Q3: 页面刷新后 401
 **原因**: `AppState.api` 没有从 LocalStorage 恢复 token
@@ -150,6 +153,8 @@ curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:3012/api/v1/limit-
    ```
 2. 重新登录
 3. 检查后端是否正常运行：`curl http://localhost:3012/api/health`
+
+> 默认本地后端端口为 8088：`curl http://localhost:8088/api/health`（也可用 `curl http://localhost:8088/healthz`）
 
 ## 联系支持
 

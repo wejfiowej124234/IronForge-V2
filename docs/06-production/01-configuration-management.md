@@ -47,7 +47,7 @@ nano .env
 
 ```bash
 # 后端 API
-API_BASE_URL=https://api.ironforge.io
+API_BASE_URL=https://<your-backend-host>
 
 # JWT 密钥（生成方式：openssl rand -base64 64）
 JWT_SECRET=your-strong-random-key-min-32-bytes

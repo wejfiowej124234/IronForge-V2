@@ -266,7 +266,7 @@ gloo-net = { version = "0.5", features = ["http"] }
 ```rust
 use gloo_net::http::Request;
 
-let resp = Request::get("/api/wallets")
+let resp = Request::get("/api/v1/wallets")
     .send()
     .await?;
 
@@ -826,7 +826,7 @@ ws_port = 8081
 
 # 代理配置（转发 API 请求到后端）
 [[serve.proxy]]
-backend = "http://localhost:8088/api/"
+backend = "http://localhost:8088"
 path = "/api"
 
 # ========================================

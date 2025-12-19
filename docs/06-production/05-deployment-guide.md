@@ -220,8 +220,8 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - BACKEND_URL=https://api.ironforge.io
-      - BACKEND_WS_URL=wss://api.ironforge.io
+      - BACKEND_URL=https://<your-backend-host>
+      - BACKEND_WS_URL=wss://<your-backend-ws-host>
       - DOMAIN_NAME=app.ironforge.io
     volumes:
       - ./ssl:/etc/nginx/ssl:ro

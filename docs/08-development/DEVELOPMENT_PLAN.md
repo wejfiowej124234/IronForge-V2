@@ -117,12 +117,12 @@
     *   [ ] **限流处理 (Rate Limit Handling)**: 优雅处理 HTTP 429 错误，实现指数退避 (Exponential Backoff) 重试机制。
 
 2.  Gas 与费率系统 (Gas & Fees)
-    *   **参考**: `backend/src/api/gas_api.rs`
-    *   [ ] 集成 Gas Station API (`GET /api/gas/estimate`)，支持 慢/中/快 三档选择。
+    *   **参考**: `IronCore-V2/src/api/gas_api.rs`
+    *   [ ] 集成 Gas Station API (`GET /api/v1/gas/estimate`)，支持 慢/中/快 三档选择。
     *   [ ] 实现服务费计算逻辑 (Flat/Percent)，并在 UI 中明确展示“网络费”与“服务费”。
 
 3.  交易生命周期管理 (Transaction Lifecycle)
-    *   [ ] 实现交易广播接口 (`POST /api/tx/broadcast`)。
+    *   [ ] 实现交易广播接口（提交已签名 raw_tx，不包含私钥）：`POST /api/v1/transactions/broadcast`。
     *   [ ] 实现交易状态轮询机制 (Pending -> Confirmed/Failed)。
     *   [ ] 处理交易“卡死”或“超时”的异常状态反馈。
     *   [ ] **实时更新流 (Real-time Stream)**: 优先使用 WebSocket/SSE 推送交易状态与余额变更，降级方案为指数退避轮询 (Exponential Backoff Polling)。
@@ -336,7 +336,7 @@
 3.  资产数据对接 (Real-Data Dashboard)
     *   **参考**: `Phase 3 (Backend API)`
     *   [ ] **真实余额同步**:
-        *   对接 `GET /api/wallet/{id}/balance` 接口，替换 Mock 数据。
+        *   对接 `GET /api/v1/wallets/{address}/balance`（或 `GET /api/v1/balance`）接口，替换 Mock 数据。
         *   实现 `use_resource` 自动轮询或 WebSocket 推送更新余额。
     *   [ ] **网络状态指示器**: 当 `window.offline` 时，顶部显示红色 "离线模式" 横幅，并禁用交易功能。
     *   [ ] **交易活动列表 (Activity List)**:

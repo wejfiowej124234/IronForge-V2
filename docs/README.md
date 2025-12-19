@@ -39,7 +39,7 @@ Historical documents moved to [deprecated/](./deprecated/) folder.
 
 ### Development Server
 ```bash
-cd IronForge
+cd IronForge-V2
 trunk serve --port 8081 --open
 ```
 
@@ -72,7 +72,7 @@ See [I18N_KEYS_REFERENCE.md](./features/I18N_KEYS_REFERENCE.md) for all availabl
 ## 📦 Project Structure
 
 ```
-IronForge/
+IronForge-V2/
 ├── src/
 │   ├── api/              # API client layer
 │   ├── components/       # Reusable UI components
