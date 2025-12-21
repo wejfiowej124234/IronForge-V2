@@ -3,8 +3,8 @@
 > 🚀 **版本**: 2.0  
 > 📅 **最后更新**: 2025-12-06  
 > 🎯 **目标**: 构建下一代企业级 Web3 钱包前端  
-> 🌐 **i18n**: 4+ languages (see docs) ✅  
-> 📚 **Documentation**: 57 files, 27,437 lines, 12 README indexes ⭐
+> 🌐 **i18n**: 以文档与代码为准 ✅  
+> 📚 **Documentation**: 以 `docs/INDEX.md` 为入口与真相源 ⭐
 
 ---
 
@@ -33,7 +33,7 @@
 | **[08-development](./docs/08-development/)** | 开发指南 | 7 | [📖 README](./docs/08-development/README.md) |
 | **[latest-updates](./docs/latest-updates/)** | 最新更新 🔥 | 3 | [📖 README](./docs/latest-updates/README.md) |
 
-**总计**: 57 个文档, 27,437 行, 100% 覆盖 ✅
+> 说明：文档数量/行数属于易漂移信息，不作为发布承诺；以索引与 CI 为准。
 
 ---
 
@@ -99,10 +99,37 @@ npm run build:css
 - GitHub Pages：push 到 `main` 会发布 `dist/`
 - Fly.io：push 到 `main` 会通过 `flyctl deploy` 部署到 `oxidevault-ironforge-v2`
 
+### 已发布地址（以 Fly 配置为准）
+
+- Frontend (Fly): https://oxidevault-ironforge-v2.fly.dev
+- Backend (Fly): https://oxidevault-ironcore-v2.fly.dev
+
 ### 必要配置
 
 - `FLY_API_TOKEN`：GitHub 仓库 Actions Secret（必需；缺失会导致 Fly 部署失败）
 - `API_BASE_URL`：可选 GitHub Actions Variable（用于编译期注入后端 API Base URL）
+
+### API_BASE_URL 行为说明（重要）
+
+API Base URL 的解析顺序：
+
+1) **LocalStorage 覆盖**：浏览器 LocalStorage 键 `api_base_url`（优先级最高）
+2) **编译期注入**：`API_BASE_URL`（`option_env!("API_BASE_URL")`）
+3) **默认值**：`http://localhost:8088`
+
+本地切换后端示例（浏览器控制台执行后刷新页面）：
+
+```js
+localStorage.setItem('api_base_url', 'http://localhost:8088');
+location.reload();
+```
+
+清除覆盖（回到编译期默认值/本地默认值）：
+
+```js
+localStorage.removeItem('api_base_url');
+location.reload();
+```
 
 相关文件：
 

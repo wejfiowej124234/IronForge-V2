@@ -874,6 +874,12 @@ impl SpeedTier {
     }
 }
 
+/// 解析十六进制字符串为u64
+fn parse_hex_u64(hex: &str) -> Result<u64> {
+    let hex_clean = hex.trim_start_matches("0x");
+    u64::from_str_radix(hex_clean, 16).map_err(|e| anyhow!("Failed to parse hex: {} ({})", hex, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -885,12 +891,6 @@ mod tests {
         assert_eq!(SpeedTier::Medium.to_gas_speed(), GasSpeed::Average);
         assert_eq!(SpeedTier::Fast.to_gas_speed(), GasSpeed::Fast);
     }
-}
-
-/// 解析十六进制字符串为u64
-fn parse_hex_u64(hex: &str) -> Result<u64> {
-    let hex_clean = hex.trim_start_matches("0x");
-    u64::from_str_radix(hex_clean, 16).map_err(|e| anyhow!("Failed to parse hex: {} ({})", hex, e))
 }
 
 // ChainType::from_str 已在 address_detector.rs 中定义，这里不需要重复实现

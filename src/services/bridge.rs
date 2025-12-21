@@ -210,10 +210,10 @@ impl BridgeService {
                 .map_err(|_| "invalid fractional part".to_string())?
         };
 
-        Ok(int_u128
+        int_u128
             .checked_mul(1_000_000_000_000_000_000u128)
             .and_then(|x| x.checked_add(frac_u128))
-            .ok_or_else(|| "amount overflow".to_string())?)
+            .ok_or_else(|| "amount overflow".to_string())
     }
 
     /// 执行跨链桥接✅使用统一端点
@@ -258,7 +258,10 @@ impl BridgeService {
         let is_evm = matches!(
             from_chain_type,
             ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
-        ) && matches!(to_chain_type, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon);
+        ) && matches!(
+            to_chain_type,
+            ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
+        );
 
         if !is_evm {
             return Err(
@@ -398,7 +401,10 @@ impl BridgeService {
         let is_evm = matches!(
             from_chain_type,
             ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
-        ) && matches!(to_chain_type, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon);
+        ) && matches!(
+            to_chain_type,
+            ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
+        );
 
         if !is_evm {
             return Err(

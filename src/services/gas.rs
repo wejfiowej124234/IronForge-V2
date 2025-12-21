@@ -33,7 +33,7 @@ pub struct GasEstimateResponse {
 }
 
 /// Pure helper: pick an estimate by speed from an aggregate response.
-pub fn pick_estimate<'a>(all: &'a GasEstimateResponse, speed: GasSpeed) -> &'a GasEstimate {
+pub fn pick_estimate(all: &GasEstimateResponse, speed: GasSpeed) -> &GasEstimate {
     match speed {
         GasSpeed::Slow => &all.slow,
         GasSpeed::Average => &all.average,
@@ -81,7 +81,10 @@ mod tests {
     fn gas_fee_eth_invalid_values_are_zero() {
         assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(-1.0, 21_000), 0.0);
         assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(f64::NAN, 21_000), 0.0);
-        assert_eq!(gas_fee_eth_from_max_fee_per_gas_gwei(f64::INFINITY, 21_000), 0.0);
+        assert_eq!(
+            gas_fee_eth_from_max_fee_per_gas_gwei(f64::INFINITY, 21_000),
+            0.0
+        );
     }
 
     #[test]
@@ -92,9 +95,18 @@ mod tests {
             fast: dummy_est(3.0, 60),
         };
 
-        assert_eq!(pick_estimate(&all, GasSpeed::Slow).max_fee_per_gas_gwei, 1.0);
-        assert_eq!(pick_estimate(&all, GasSpeed::Average).max_fee_per_gas_gwei, 2.0);
-        assert_eq!(pick_estimate(&all, GasSpeed::Fast).max_fee_per_gas_gwei, 3.0);
+        assert_eq!(
+            pick_estimate(&all, GasSpeed::Slow).max_fee_per_gas_gwei,
+            1.0
+        );
+        assert_eq!(
+            pick_estimate(&all, GasSpeed::Average).max_fee_per_gas_gwei,
+            2.0
+        );
+        assert_eq!(
+            pick_estimate(&all, GasSpeed::Fast).max_fee_per_gas_gwei,
+            3.0
+        );
     }
 }
 

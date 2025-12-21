@@ -8,7 +8,9 @@ use crate::components::atoms::input::{Input, InputType};
 use crate::components::atoms::select::{Select, SelectOption};
 use crate::components::molecules::error_message::ErrorMessage;
 use crate::components::molecules::ChainSelector;
-use crate::services::bridge::{BridgeHistoryItem, BridgeResponse, BridgeService, BridgeStatusResponse};
+use crate::services::bridge::{
+    BridgeHistoryItem, BridgeResponse, BridgeService, BridgeStatusResponse,
+};
 use crate::shared::design_tokens::Colors;
 use crate::shared::state::AppState;
 use dioxus::prelude::*;

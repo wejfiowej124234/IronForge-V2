@@ -29,7 +29,10 @@ use dioxus::prelude::*;
 use std::sync::Arc;
 
 fn is_evm_chain(chain: ChainType) -> bool {
-    matches!(chain, ChainType::Ethereum | ChainType::BSC | ChainType::Polygon)
+    matches!(
+        chain,
+        ChainType::Ethereum | ChainType::BSC | ChainType::Polygon
+    )
 }
 
 fn is_bridge_supported(from: ChainType, to: ChainType) -> bool {
@@ -45,7 +48,11 @@ enum AutoStrategyDecision {
     BlockedUnsupportedPair,
 }
 
-fn decide_auto_strategy(from_chain: ChainType, target_chain: ChainType, token_is_native: bool) -> AutoStrategyDecision {
+fn decide_auto_strategy(
+    from_chain: ChainType,
+    target_chain: ChainType,
+    token_is_native: bool,
+) -> AutoStrategyDecision {
     if target_chain == from_chain {
         return AutoStrategyDecision::Direct;
     }
@@ -640,6 +647,7 @@ async fn execute_direct_transfer(
 }
 
 /// 执行跨链桥转账
+#[allow(clippy::too_many_arguments)]
 async fn execute_bridge_transfer(
     app_state: &AppState,
     wallet_ctrl: &crate::features::wallet::hooks::WalletController,
@@ -670,7 +678,9 @@ async fn execute_bridge_transfer(
         .ok_or_else(|| anyhow!("请选择要跨链发送的代币"))?;
 
     if token.is_native {
-        return Err(anyhow!("当前跨链发送暂不支持原生资产（仅支持USDT/USDC等ERC20）"));
+        return Err(anyhow!(
+            "当前跨链发送暂不支持原生资产（仅支持USDT/USDC等ERC20）"
+        ));
     }
 
     // 3. 调用跨链桥服务
@@ -891,19 +901,23 @@ pub fn Send() -> Element {
             // 计算 gas_fee（用于费用明细展示与余额校验）
             let gas_fee = gas
                 .as_ref()
-                .map(|g| crate::services::gas::gas_fee_eth_from_max_fee_per_gas_gwei(
-                    g.max_fee_per_gas_gwei,
-                    21_000,
-                ))
+                .map(|g| {
+                    crate::services::gas::gas_fee_eth_from_max_fee_per_gas_gwei(
+                        g.max_fee_per_gas_gwei,
+                        21_000,
+                    )
+                })
                 .unwrap_or(0.0);
 
             // 组装 gas_details（直接转账需要）
-            let gas_details = gas.as_ref().map(|g| crate::services::payment_router_enterprise::GasDetails {
-                base_fee: g.base_fee.clone(),
-                max_priority_fee: g.max_priority_fee.clone(),
-                max_fee_per_gas: g.max_fee_per_gas.clone(),
-                estimated_time_seconds: g.estimated_time_seconds,
-            });
+            let gas_details =
+                gas.as_ref()
+                    .map(|g| crate::services::payment_router_enterprise::GasDetails {
+                        base_fee: g.base_fee.clone(),
+                        max_priority_fee: g.max_priority_fee.clone(),
+                        max_fee_per_gas: g.max_fee_per_gas.clone(),
+                        estimated_time_seconds: g.estimated_time_seconds,
+                    });
 
             // 同链：直接发送
             if target_chain == from_chain {
@@ -927,17 +941,22 @@ pub fn Send() -> Element {
             // 跨链：Phase A 先支持 ERC20（Stargate pool）；原生资产跨链暂不支持
 
             // 查询桥费用（对齐后端 /api/v1/bridge/quote），失败会在 service 内部降级
-            let bridge_fee_service = crate::services::bridge_fee::BridgeFeeService::new(app_state_clone);
+            let bridge_fee_service =
+                crate::services::bridge_fee::BridgeFeeService::new(app_state_clone);
             let quote = match bridge_fee_service
-                .get_bridge_fee(from_chain, target_chain, amount_val, Some(token.symbol.as_str()))
+                .get_bridge_fee(
+                    from_chain,
+                    target_chain,
+                    amount_val,
+                    Some(token.symbol.as_str()),
+                )
                 .await
             {
                 Ok(q) => q,
                 Err(e) => {
-                    err_mut.set(Some(crate::shared::ui_error::sanitize_user_message(format!(
-                        "获取跨链费用失败: {}",
-                        e
-                    ))));
+                    err_mut.set(Some(crate::shared::ui_error::sanitize_user_message(
+                        format!("获取跨链费用失败: {}", e),
+                    )));
                     strategy_mut.set(None);
                     return;
                 }
